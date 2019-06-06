@@ -1073,7 +1073,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data)
     {
         if(process_data->output_flags & OUTPUT_HTML)
         {
-            FILE *file = fopen(process_data->html_output_path, "w");
+            FILE *file = fopen(process_data->html_output_path, "wb");
             if(file)
             {
                 OutputHTMLFromPageNodeTreeToFile(page, file, process_data->html_header, process_data->html_footer);
@@ -1082,7 +1082,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data)
         }
         if(process_data->output_flags & OUTPUT_MARKDOWN)
         {
-            FILE *file = fopen(process_data->md_output_path, "w");
+            FILE *file = fopen(process_data->md_output_path, "wb");
             if(file)
             {
                 OutputMarkdownFromPageNodeTreeToFile(page, file);
@@ -1091,7 +1091,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data)
         }
         if(process_data->output_flags & OUTPUT_BBCODE)
         {
-            FILE *file = fopen(process_data->bbcode_output_path, "w");
+            FILE *file = fopen(process_data->bbcode_output_path, "wb");
             if(file)
             {
                 OutputBBCodeFromPageNodeTreeToFile(page, file);
@@ -1107,7 +1107,7 @@ static char *
 LoadEntireFileAndNullTerminate(char *filename)
 {
     char *result = 0;
-    FILE *file = fopen(filename, "r");
+    FILE *file = fopen(filename, "rb");
     if(file)
     {
         fseek(file, 0, SEEK_END);
