@@ -1379,6 +1379,7 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
         fprintf(file, "<meta property=\"og:description\" content=\"%s\">\n", page->description);
         fprintf(file, "<meta name=\"twitter:description\" content=\"View the album on Flickr.\">\n", page->description);
     }
+    fprintf(file, "<link rel=\"canonical\" href=\"http://ryanfleury.net/%s\">\n", page->url);
     fprintf(file, "<meta property=\"og:type\" content=\"website\">\n");
     fprintf(file, "<meta property=\"og:url\" content=\"http://ryanfleury.net/%s\">\n", page->url);
     fprintf(file, "<meta property=\"og:site_name\" content=\"Ryan Fleury\">\n");
