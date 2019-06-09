@@ -1368,7 +1368,7 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
     fprintf(file, "<html lang=\"en\">\n");
     fprintf(file, "<head>\n");
     fprintf(file, "<meta charset=\"utf-8\">");
-    // TODO(bvisness): Consider adding mobile-friendly styles and then adding this line
+    // NOTE(bvisness): Consider adding mobile-friendly styles and then adding this line
     // fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
     fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">\n");
     fprintf(file, "<title>%s | Ryan Fleury</title>\n", page->main_title);
