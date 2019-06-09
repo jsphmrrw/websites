@@ -1368,14 +1368,14 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
     fprintf(file, "<meta charset=\"utf-8\">");
     // TODO(bvisness): Consider adding mobile-friendly styles and then adding this line
     // fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-    fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">");
-    fprintf(file, "<title>%s | Ryan Fleury</title>", page->main_title);
-    fprintf(file, "<meta property=\"og:title\" content=\"%s\">", page->main_title);
+    fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">\n");
+    fprintf(file, "<title>%s | Ryan Fleury</title>\n", page->main_title);
+    fprintf(file, "<meta property=\"og:title\" content=\"%s\">\n", page->main_title);
     if (page->description) {
-        fprintf(file, "<meta name=\"description\" content=\"%s\">", page->description);
-        fprintf(file, "<meta property=\"og:description\" content=\"%s\">", page->description);
+        fprintf(file, "<meta name=\"description\" content=\"%s\">\n", page->description);
+        fprintf(file, "<meta property=\"og:description\" content=\"%s\">\n", page->description);
     }
-    fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">");
+    fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">\n");
     fprintf(file, "</head>\n");
     fprintf(file, "<body>\n");
     if(page->html_header)
