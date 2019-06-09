@@ -2,9 +2,23 @@
 #include <stdio.h>
 #include <stdarg.h>
 #define MemorySet memset
+#define MemoryCopy memcpy
 #define CalculateCStringLength strlen
+#define CStringToInt atoi
 
 #define Log(...) { fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); }
+
+static int
+CharIsAlpha(int c)
+{
+    return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+}
+
+static int
+CharIsDigit(int c)
+{
+    return (c >= '0' && c <= '9');
+}
 
 static int
 StringMatchCaseSensitiveN(char *a, char *b, int n)
@@ -64,7 +78,10 @@ enum
     PAGE_NODE_TYPE_code,
     PAGE_NODE_TYPE_youtube,
     PAGE_NODE_TYPE_image,
+    PAGE_NODE_TYPE_link,
     PAGE_NODE_TYPE_feature_button,
+    PAGE_NODE_TYPE_lister,
+    PAGE_NODE_TYPE_date,
 };
 
 enum
@@ -83,6 +100,7 @@ enum
 #define TEXT_STYLE_BOLD       0x01
 #define TEXT_STYLE_ITALICS    0x02
 #define TEXT_STYLE_UNDERLINE  0x04
+#define TEXT_STYLE_MONOSPACE  0x08
 
 typedef struct PageNode PageNode;
 typedef struct PageNode
@@ -115,6 +133,13 @@ typedef struct PageNode
         }
         code;
         
+        struct Link
+        {
+            char *url;
+            int url_length;
+        }
+        link;
+        
         struct FeatureButton
         {
             char *image_path;
@@ -123,6 +148,14 @@ typedef struct PageNode
             int link_length;
         }
         feature_button;
+        
+        struct Date
+        {
+            int year;
+            int month;
+            int day;
+        }
+        date;
         
     };
 }
@@ -193,6 +226,25 @@ ParseContextAllocateMemory(ParseContext *context, int size)
     memory = (char *)chunk->memory + chunk->alloc_position;
     chunk->alloc_position += size;
     return memory;
+}
+
+static char *
+ParseContextAllocateCStringCopy(ParseContext *context, char *str)
+{
+    int needed_bytes = CalculateCStringLength(str)+1;
+    char *str_copy = ParseContextAllocateMemory(context, needed_bytes);
+    MemoryCopy(str_copy, str, needed_bytes);
+    return str_copy;
+}
+
+static char *
+ParseContextAllocateCStringCopyN(ParseContext *context, char *str, int n)
+{
+    int needed_bytes = n+1;
+    char *str_copy = ParseContextAllocateMemory(context, needed_bytes);
+    MemoryCopy(str_copy, str, needed_bytes);
+    str_copy[n] = 0;
+    return str_copy;
 }
 
 static PageNode *
@@ -266,7 +318,7 @@ CharIsSpace(int c)
 static int
 CharIsSymbol(int c)
 {
-    return (c == '{' || c == '}' || c == '*' || c == '_');
+    return (c == '{' || c == '}' || c == '*' || c == '_' || c == '`');
 }
 
 static int
@@ -308,6 +360,7 @@ GetNextTokenFromBuffer(char *buffer)
                 static char *symbolic_blocks_to_break_out[] = {
                     "*",
                     "_",
+                    "`",
                     "{",
                     "}",
                 };
@@ -332,6 +385,9 @@ GetNextTokenFromBuffer(char *buffer)
             {
                 for(j=i+1; buffer[j] && CharIsText(buffer[j]) && buffer[j] != '\n'; ++j);
                 token.type = TOKEN_text;
+                
+                // NOTE(rjf): Add skipped whitespace to text node
+                for(; i > 0 && CharIsSpace(buffer[i-1]); --i);
             }
             
             if(j != 0)
@@ -608,6 +664,62 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                 }
             }
             
+            else if(TokenMatch(tag, "@Link"))
+            {
+                Token open_bracket = {0};
+                if(RequireToken(tokenizer, "{", &open_bracket))
+                {
+                    
+                    char *text = 0;
+                    int text_length = 0;
+                    
+                    char *link = 0;
+                    int link_length = 0;
+                    
+                    text = open_bracket.string+1;
+                    for(int i = 0; text[i]; ++i)
+                    {
+                        if(text[i] == '"')
+                        {
+                            text = text+i+1;
+                            break;
+                        }
+                    }
+                    for(text_length = 0; text[text_length] && text[text_length] != '"'; ++text_length);
+                    
+                    link = text+text_length+1;
+                    for(int i = 0; link[i]; ++i)
+                    {
+                        if(link[i] == '"')
+                        {
+                            link = link+i+1;
+                            break;
+                        }
+                    }
+                    for(link_length = 0; link[link_length] && link[link_length] != '"'; ++link_length);
+                    
+                    PageNode *node = ParseContextAllocateNode(context);
+                    node->type = PAGE_NODE_TYPE_link;
+                    node->string = text;
+                    node->string_length = text_length;
+                    node->link.url = link;
+                    node->link.url_length = link_length;
+                    node->text_style_flags = text_style_flags;
+                    *node_store_target = node;
+                    node_store_target = &(*node_store_target)->next;
+                    
+                    tokenizer->at = link + link_length+1;
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Expected } to follow link data.");
+                    }
+                }
+                else
+                {
+                    PushParseError(context, tokenizer, "A FeatureButton tag expects {<image>,<string>,<link>} to follow.");
+                }
+            }
+            
             else if(TokenMatch(tag, "@FeatureButton"))
             {
                 Token open_bracket = {0};
@@ -680,6 +792,128 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                 }
             }
             
+            else if(TokenMatch(tag, "@Lister"))
+            {
+                Token open_bracket = {0};
+                if(RequireToken(tokenizer, "{", &open_bracket))
+                {
+                    
+                    char *text = 0;
+                    int text_length = 0;
+                    
+                    text = open_bracket.string+1;
+                    for(int i = 0; text[i]; ++i)
+                    {
+                        if(text[i] == '"')
+                        {
+                            text = text+i+1;
+                            break;
+                        }
+                    }
+                    for(text_length = 0; text[text_length] && text[text_length] != '"'; ++text_length);
+                    
+                    PageNode *node = ParseContextAllocateNode(context);
+                    node->type = PAGE_NODE_TYPE_lister;
+                    node->string = text;
+                    node->string_length = text_length;
+                    node->text_style_flags = text_style_flags;
+                    *node_store_target = node;
+                    node_store_target = &(*node_store_target)->next;
+                    
+                    tokenizer->at = text + text_length+1;
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Expected } to follow lister data.");
+                    }
+                }
+                else
+                {
+                    PushParseError(context, tokenizer, "A FeatureButton tag expects {<image>,<string>,<link>} to follow.");
+                }
+            }
+            
+            else if(TokenMatch(tag, "@Date"))
+            {
+                Token open_bracket = {0};
+                if(RequireToken(tokenizer, "{", &open_bracket))
+                {
+                    int year = 0;
+                    int month = 0;
+                    int day = 0;
+                    
+                    char *str = open_bracket.string+1;
+                    
+                    for(int i = 0; str[i]; ++i)
+                    {
+                        if(CharIsDigit(str[i]))
+                        {
+                            char num_str[32] = {0};
+                            int j = 0;
+                            for(; str[i+j] && j < sizeof(num_str) && CharIsDigit(str[j]); ++j)
+                            {
+                                num_str[j] = str[i+j];
+                            }
+                            year = CStringToInt(num_str);
+                            str += i+j+1;
+                            break;
+                        }
+                    }
+                    
+                    for(int i = 0; str[i]; ++i)
+                    {
+                        if(CharIsDigit(str[i]))
+                        {
+                            char num_str[32] = {0};
+                            int j = 0;
+                            for(; str[i+j] && j < sizeof(num_str) && CharIsDigit(str[j]); ++j)
+                            {
+                                num_str[j] = str[i+j];
+                            }
+                            month = CStringToInt(num_str);
+                            str += i+j+1;
+                            break;
+                        }
+                    }
+                    
+                    for(int i = 0; str[i]; ++i)
+                    {
+                        if(CharIsDigit(str[i]))
+                        {
+                            char num_str[32] = {0};
+                            int j = 0;
+                            for(; str[i+j] && j < sizeof(num_str) && CharIsDigit(str[j]); ++j)
+                            {
+                                num_str[j] = str[i+j];
+                            }
+                            day = CStringToInt(num_str);
+                            str += i+j;
+                            break;
+                        }
+                    }
+                    
+                    PageNode *node = ParseContextAllocateNode(context);
+                    node->type = PAGE_NODE_TYPE_date;
+                    node->string = "";
+                    node->string_length = 0;
+                    node->date.year = year;
+                    node->date.month = month;
+                    node->date.day = day;
+                    node->text_style_flags = text_style_flags;
+                    *node_store_target = node;
+                    node_store_target = &(*node_store_target)->next;
+                    
+                    tokenizer->at = str;
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Expected } to follow date data.");
+                    }
+                }
+                else
+                {
+                    PushParseError(context, tokenizer, "A FeatureButton tag expects {<image>,<string>,<link>} to follow.");
+                }
+            }
+            
             else
             {
                 PushParseError(context, tokenizer, "Malformed tag");
@@ -695,6 +929,10 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             else if(TokenMatch(symbol, "_"))
             {
                 text_style_flags ^= TEXT_STYLE_UNDERLINE;
+            }
+            else if(TokenMatch(symbol, "`"))
+            {
+                text_style_flags ^= TEXT_STYLE_MONOSPACE;
             }
             else
             {
@@ -729,8 +967,39 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
     return result;
 }
 
+typedef struct FileProcessData
+{
+    int output_flags;
+    char *html_output_path;
+    char *md_output_path;
+    char *bbcode_output_path;
+    char *html_header;
+    char *html_footer;
+}
+FileProcessData;
+
+typedef struct ProcessedFile
+{
+    PageNode *root;
+    char *filename;
+    char *main_title;
+    int date_year;
+    int date_month;
+    int date_day;
+    int output_flags;
+    char *html_header;
+    char *html_footer;
+    char *html_output_path;
+    FILE *html_output_file;
+    char *markdown_output_path;
+    FILE *markdown_output_file;
+    char *bbcode_output_path;
+    FILE *bbcode_output_file;
+}
+ProcessedFile;
+
 static void
-OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
+OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, ProcessedFile *files, int file_count)
 {
     int paragraph_active = 0;
     
@@ -756,6 +1025,10 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                     paragraph_active = 1;
                 }
                 
+                if(node->text_style_flags & TEXT_STYLE_BOLD)
+                {
+                    fprintf(file, "<strong>");
+                }
                 if(node->text_style_flags & TEXT_STYLE_UNDERLINE)
                 {
                     fprintf(file, "<u>");
@@ -764,7 +1037,15 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                 {
                     fprintf(file, "<i>");
                 }
+                if(node->text_style_flags & TEXT_STYLE_MONOSPACE)
+                {
+                    fprintf(file, "<span class=\"monospace\">");
+                }
                 fprintf(file, "%.*s", node->string_length, node->string);
+                if(node->text_style_flags & TEXT_STYLE_MONOSPACE)
+                {
+                    fprintf(file, "</span>");
+                }
                 if(node->text_style_flags & TEXT_STYLE_ITALICS)
                 {
                     fprintf(file, "</i>");
@@ -773,9 +1054,13 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                 {
                     fprintf(file, "</u>");
                 }
-                fprintf(file, "\n");
+                if(node->text_style_flags & TEXT_STYLE_BOLD)
+                {
+                    fprintf(file, "</strong>");
+                }
                 
-                if(!node->next || node->next->type != PAGE_NODE_TYPE_text)
+                if(!node->next || (node->next->type != PAGE_NODE_TYPE_text &&
+                                   node->next->type != PAGE_NODE_TYPE_link))
                 {
                     fprintf(file, "</p>");
                     paragraph_active = 0;
@@ -799,7 +1084,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                     list_item; list_item = list_item->next)
                 {
                     fprintf(file, "<li>");
-                    OutputHTMLFromPageNodeTreeToFile_(list_item, file, 0);
+                    OutputHTMLFromPageNodeTreeToFile_(list_item, file, 0, files, file_count);
                     fprintf(file, "</li>");
                 }
                 fprintf(file, "</ul>\n");
@@ -812,7 +1097,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                     list_item; list_item = list_item->next)
                 {
                     fprintf(file, "<li>");
-                    OutputHTMLFromPageNodeTreeToFile_(list_item, file, 0);
+                    OutputHTMLFromPageNodeTreeToFile_(list_item, file, 0, files, file_count);
                     fprintf(file, "</li>");
                 }
                 fprintf(file, "</ol>\n");
@@ -822,26 +1107,152 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
             {
                 fprintf(file, "<div class=\"code\"><pre>");
                 
-                for(int i = 0; i < node->string_length; ++i)
+                enum
                 {
-                    if(node->string[i] == '<')
+                    CODE_TYPE_default,
+                    CODE_TYPE_line_comment,
+                    CODE_TYPE_block_comment,
+                    CODE_TYPE_keyword,
+                    CODE_TYPE_constant,
+                    CODE_TYPE_tag,
+                };
+                
+                int code_type = CODE_TYPE_default;
+                
+                for(int i = 0; i < node->string_length;)
+                {
+                    int token_length = 1;
+                    
+                    code_type = CODE_TYPE_default;
+                    
+                    if(node->string[i] == '/' && node->string[i+1] == '/')
                     {
-                        fprintf(file, "&lt;");
+                        code_type = CODE_TYPE_line_comment;
+                        for(;
+                            node->string[i+token_length] &&
+                            node->string[i+token_length] != '\n';
+                            ++token_length);
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #8cba53;\">");
                     }
-                    else if(node->string[i] == '>')
+                    else if(node->string[i] == '/' && node->string[i+1] == '*')
                     {
-                        fprintf(file, "&gt;");
+                        code_type = CODE_TYPE_block_comment;
+                        for(;
+                            node->string[i+token_length] &&
+                            !(node->string[i+token_length] == '*' &&
+                              node->string[i+token_length] == '/');
+                            ++token_length);
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #8cba53;\">");
                     }
-                    else if(node->string[i] == '&')
+                    else if(CharIsAlpha(node->string[i]) || node->string[i] == '_')
                     {
-                        fprintf(file, "&amp;");
+                        for(;
+                            node->string[i+token_length] &&
+                            (node->string[i+token_length] == '_' ||
+                             CharIsAlpha(node->string[i+token_length]) ||
+                             CharIsDigit(node->string[i+token_length]));
+                            ++token_length);
+                        
+                        static char *keywords[] = {
+                            "auto", "break", "case", "char",
+                            "const", "continue", "default", "do", "double",
+                            "else", "enum", "extern", "float",
+                            "for", "goto", "if", "int", "long", "register", "return",
+                            "short", "signed", "sizeof", "static",
+                            "struct", "switch", "typedef", "union", "unsigned",
+                            "void", "volatile", "while",
+                        };
+                        
+                        for(int k = 0; k < sizeof(keywords)/sizeof(keywords[0]); ++k)
+                        {
+                            if(StringMatchCaseSensitiveN(node->string+i, keywords[k], token_length) &&
+                               token_length == CalculateCStringLength(keywords[k]))
+                            {
+                                code_type = CODE_TYPE_keyword;
+                                fprintf(file, "<span class=\"code_text\" style=\"color: #f4b642;\">");
+                                break;
+                            }
+                        }
                     }
-                    else
+                    else if(CharIsDigit(node->string[i]))
                     {
-                        fprintf(file, "%c", node->string[i]);
+                        for(;
+                            node->string[i+token_length] &&
+                            (node->string[i+token_length] == '.' ||
+                             CharIsAlpha(node->string[i+token_length]) ||
+                             CharIsDigit(node->string[i+token_length]));
+                            ++token_length);
+                        
+                        code_type = CODE_TYPE_constant;
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
+                    }
+                    else if(node->string[i] == '"')
+                    {
+                        for(;
+                            node->string[i+token_length] &&
+                            node->string[i+token_length] != '"';
+                            ++token_length);
+                        
+                        ++token_length;
+                        
+                        code_type = CODE_TYPE_constant;
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
+                    }
+                    else if(node->string[i] == '\'')
+                    {
+                        for(;
+                            node->string[i+token_length] &&
+                            node->string[i+token_length] != '\'';
+                            ++token_length);
+                        
+                        ++token_length;
+                        
+                        code_type = CODE_TYPE_constant;
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
+                    }
+                    else if(node->string[i] == '@')
+                    {
+                        for(;
+                            node->string[i+token_length] &&
+                            node->string[i+token_length] > 32;
+                            ++token_length);
+                        
+                        ++token_length;
+                        
+                        code_type = CODE_TYPE_tag;
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #d82312;\">");
+                    }
+                    
+                    for(int j = i; j < i + token_length; ++j)
+                    {
+                        if(node->string[j] == '<')
+                        {
+                            fprintf(file, "&lt;");
+                        }
+                        else if(node->string[j] == '>')
+                        {
+                            fprintf(file, "&gt;");
+                        }
+                        else if(node->string[j] == '&')
+                        {
+                            fprintf(file, "&amp;");
+                        }
+                        else
+                        {
+                            fprintf(file, "%c", node->string[j]);
+                        }
+                    }
+                    
+                    i += token_length;
+                    
+                    if(code_type != CODE_TYPE_default)
+                    {
+                        fprintf(file, "</span>");
                     }
                 }
+                
                 fprintf(file, "</pre></div>");
+                
                 break;
             }
             case PAGE_NODE_TYPE_youtube:
@@ -870,14 +1281,18 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                 fprintf(file, "<div class=\"image_container\"><img class=\"image\" src=\"%.*s\"></div>\n", node->string_length, node->string);
                 break;
             }
+            case PAGE_NODE_TYPE_link:
+            {
+                fprintf(file, "<a class=\"link\" href=\"%.*s\">%.*s</a>",
+                        node->link.url_length, node->link.url,
+                        node->string_length, node->string);
+                break;
+            }
             case PAGE_NODE_TYPE_feature_button:
             {
+                fprintf(file, "<div class=\"feature_button\"\">\n");
                 fprintf(file, "<a href=\"%.*s\">\n",
                         node->feature_button.link_length, node->feature_button.link);
-                fprintf(file, "<div class=\"feature_button\"\">\n");
-                
-                //fprintf(file, "<img src=\"%.*s\">\n",
-                //node->feature_button.image_path_length, node->feature_button.image_path);
                 
                 fprintf(file, "<div class=\"feature_button_image\" style=\"background-image: url('%.*s');\n\">\n",
                         node->feature_button.image_path_length, node->feature_button.image_path);
@@ -887,8 +1302,33 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
                 fprintf(file, "%.*s\n", node->string_length, node->string);
                 fprintf(file, "</div>\n");
                 
-                fprintf(file, "</div>\n");
                 fprintf(file, "</a>\n");
+                fprintf(file, "</div>\n");
+                break;
+            }
+            case PAGE_NODE_TYPE_lister:
+            {
+                char *prefix = node->string;
+                int prefix_length = node->string_length;
+                
+                for(int i = 0; i < file_count; ++i)
+                {
+                    if(StringMatchCaseSensitiveN(files[i].filename, prefix, prefix_length))
+                    {
+                        char *path = files[i].html_output_path;
+                        for(int j = 0; path[j]; ++j)
+                        {
+                            if(StringMatchCaseSensitiveN(path+j, "generated/", 10))
+                            {
+                                path += 10;
+                                break;
+                            }
+                        }
+                        fprintf(file, "<a class=\"lister_link\" href=\"%s\">(%i/%i/%i) %s</a>\n", path,
+                                files[i].date_year, files[i].date_month, files[i].date_day, files[i].main_title);
+                    }
+                }
+                
                 break;
             }
             default: break;
@@ -897,109 +1337,8 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
 }
 
 static void
-OutputMarkdownFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
-{
-    for(; node; node = node->next)
-    {
-        switch(node->type)
-        {
-            case PAGE_NODE_TYPE_title:
-            {
-                fprintf(file, "# %.*s\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_sub_title:
-            {
-                fprintf(file, "## %.*s\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_text:
-            {
-                fprintf(file, "%.*s\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_paragraph_break:
-            {
-                fprintf(file, "\n\n");
-                break;
-            }
-            case PAGE_NODE_TYPE_unordered_list:
-            {
-                
-                break;
-            }
-            case PAGE_NODE_TYPE_ordered_list:
-            {
-                
-                break;
-            }
-            case PAGE_NODE_TYPE_code:
-            {
-                fprintf(file, "```\n");
-                fprintf(file, "%.*s", node->string_length, node->string);
-                fprintf(file, "```\n");
-                break;
-            }
-            default: break;
-        }
-    }
-}
-
-static void
-OutputBBCodeFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next)
-{
-    for(; node; node = node->next)
-    {
-        switch(node->type)
-        {
-            case PAGE_NODE_TYPE_title:
-            {
-                fprintf(file, "[b][u]%.*s[/u][/b]\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_sub_title:
-            {
-                fprintf(file, "[b]%.*s[/b]\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_text:
-            {
-                fprintf(file, "%.*s\n\n", node->string_length, node->string);
-                break;
-            }
-            case PAGE_NODE_TYPE_paragraph_break:
-            {
-                fprintf(file, "\n\n");
-                break;
-            }
-            case PAGE_NODE_TYPE_unordered_list:
-            {
-                
-                break;
-            }
-            case PAGE_NODE_TYPE_ordered_list:
-            {
-                
-                break;
-            }
-            case PAGE_NODE_TYPE_code:
-            {
-                fprintf(file, "[code]\n");
-                fprintf(file, "%.*s", node->string_length, node->string);
-                fprintf(file, "[/code]\n");
-                break;
-            }
-            case PAGE_NODE_TYPE_youtube:
-            {
-                fprintf(file, "[youtube]%.*s[/youtube]\n", node->string_length, node->string);
-            }
-            default: break;
-        }
-    }
-}
-
-static void
-OutputHTMLFromPageNodeTreeToFile(PageNode *node, FILE *file, char *header, char *footer)
+OutputHTMLFromPageNodeTreeToFile(PageNode *node, FILE *file, char *header, char *footer,
+                                 ProcessedFile *files, int file_count)
 {
     fprintf(file, "<!DOCTYPE html>\n");
     fprintf(file, "<html>\n");
@@ -1012,7 +1351,7 @@ OutputHTMLFromPageNodeTreeToFile(PageNode *node, FILE *file, char *header, char 
         fprintf(file, "%s", header);
     }
     fprintf(file, "<div class=\"page_content\">\n");
-    OutputHTMLFromPageNodeTreeToFile_(node, file, 1);
+    OutputHTMLFromPageNodeTreeToFile_(node, file, 1, files, file_count);
     fprintf(file, "</div>\n");
     if(footer)
     {
@@ -1022,34 +1361,11 @@ OutputHTMLFromPageNodeTreeToFile(PageNode *node, FILE *file, char *header, char 
     fprintf(file, "</html>\n");
 }
 
-static void
-OutputMarkdownFromPageNodeTreeToFile(PageNode *node, FILE *file)
+static ProcessedFile
+ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseContext *context)
 {
-    OutputMarkdownFromPageNodeTreeToFile_(node, file, 1);
-}
-
-static void
-OutputBBCodeFromPageNodeTreeToFile(PageNode *node, FILE *file)
-{
-    OutputBBCodeFromPageNodeTreeToFile_(node, file, 1);
-}
-
-typedef struct FileProcessData
-{
-    int output_flags;
-    char *html_output_path;
-    char *md_output_path;
-    char *bbcode_output_path;
-    char *html_header;
-    char *html_footer;
-}
-FileProcessData;
-
-static void
-ProcessFile(char *filename, char *file, FileProcessData *process_data)
-{
-    ParseContext context_ = {0};
-    ParseContext *context = &context_;
+    ProcessedFile processed_file = {0};
+    
     Tokenizer tokenizer_ = {0};
     Tokenizer *tokenizer = &tokenizer_;
     tokenizer->at = file;
@@ -1058,49 +1374,54 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data)
     
     PageNode *page = ParseText(context, tokenizer);
     
-    if(context->error_stack_size > 0)
-    {
-        for(int i = 0; i < context->error_stack_size; ++i)
-        {
-            fprintf(stderr, "Parse Error (%s:%i): %s\n",
-                    context->error_stack[i].file,
-                    context->error_stack[i].line,
-                    context->error_stack[i].message);
-        }
-    }
-    
     if(page)
     {
-        if(process_data->output_flags & OUTPUT_HTML)
+        processed_file.root = page;
+        processed_file.filename = filename;
+        processed_file.output_flags = process_data->output_flags;
+        processed_file.html_header = process_data->html_header;
+        processed_file.html_footer = process_data->html_footer;
+        
+        for(PageNode *node = page; node; node = node->next)
         {
-            FILE *file = fopen(process_data->html_output_path, "wb");
-            if(file)
+            if(node->type == PAGE_NODE_TYPE_title)
             {
-                OutputHTMLFromPageNodeTreeToFile(page, file, process_data->html_header, process_data->html_footer);
-                fclose(file);
-            }
-        }
-        if(process_data->output_flags & OUTPUT_MARKDOWN)
-        {
-            FILE *file = fopen(process_data->md_output_path, "wb");
-            if(file)
-            {
-                OutputMarkdownFromPageNodeTreeToFile(page, file);
-                fclose(file);
-            }
-        }
-        if(process_data->output_flags & OUTPUT_BBCODE)
-        {
-            FILE *file = fopen(process_data->bbcode_output_path, "wb");
-            if(file)
-            {
-                OutputBBCodeFromPageNodeTreeToFile(page, file);
-                fclose(file);
+                processed_file.main_title = ParseContextAllocateCStringCopyN(context, node->string, node->string_length);
+                break;
             }
         }
         
+        for(PageNode *node = page; node; node = node->next)
+        {
+            if(node->type == PAGE_NODE_TYPE_date)
+            {
+                processed_file.date_year = node->date.year;
+                processed_file.date_month = node->date.month;
+                processed_file.date_day = node->date.day;
+                break;
+            }
+        }
+        
+        if(process_data->output_flags & OUTPUT_HTML)
+        {
+            processed_file.html_output_path = ParseContextAllocateCStringCopy(context, process_data->html_output_path);
+            processed_file.html_output_file = fopen(process_data->html_output_path, "wb");
+        }
+        
+        if(process_data->output_flags & OUTPUT_MARKDOWN)
+        {
+            processed_file.markdown_output_path = ParseContextAllocateCStringCopy(context, process_data->md_output_path);
+            processed_file.markdown_output_file = fopen(process_data->md_output_path, "wb");
+        }
+        
+        if(process_data->output_flags & OUTPUT_BBCODE)
+        {
+            processed_file.bbcode_output_path = ParseContextAllocateCStringCopy(context, process_data->bbcode_output_path);
+            processed_file.bbcode_output_file = fopen(process_data->bbcode_output_path, "wb");
+        }
     }
     
+    return processed_file;
 }
 
 static char *
@@ -1126,6 +1447,7 @@ LoadEntireFileAndNullTerminate(char *filename)
 int
 main(int argument_count, char **arguments)
 {
+    int expected_file_count = 0;
     int output_flags = 0;
     char *html_header_path = 0;
     char *html_footer_path = 0;
@@ -1176,6 +1498,12 @@ main(int argument_count, char **arguments)
             }
         }
         
+        // NOTE(rjf): Just a file to parse.
+        else
+        {
+            ++expected_file_count;
+        }
+        
     }
     
     if(html_header_path)
@@ -1187,6 +1515,10 @@ main(int argument_count, char **arguments)
     {
         html_footer = LoadEntireFileAndNullTerminate(html_footer_path);
     }
+    
+    ParseContext context = {0};
+    ProcessedFile files[256];
+    int file_count = 0;
     
     for(int i = 1; i < argument_count; ++i)
     {
@@ -1227,7 +1559,53 @@ main(int argument_count, char **arguments)
                 process_data.html_footer = html_footer;
             }
             
-            ProcessFile(filename, file, &process_data);
+            ProcessedFile processed_file = ProcessFile(filename, file, &process_data, &context);
+            
+            if(file_count < sizeof(files)/sizeof(files[0]))
+            {
+                files[file_count++] = processed_file;
+            }
+            else
+            {
+                fprintf(stderr, "ERROR: Max file count reached. @Ryan, increase this.\n");
+            }
+            
+        }
+    }
+    
+    // NOTE(rjf): Print errors
+    if(context.error_stack_size > 0)
+    {
+        for(int i = 0; i < context.error_stack_size; ++i)
+        {
+            fprintf(stderr, "Parse Error (%s:%i): %s\n",
+                    context.error_stack[i].file,
+                    context.error_stack[i].line,
+                    context.error_stack[i].message);
+        }
+    }
+    
+    // NOTE(rjf): Generate code for all processed files.
+    {
+        for(int i = 0; i < file_count; ++i)
+        {
+            ProcessedFile *file = files+i;
+            
+            if(file->html_output_file)
+            {
+                OutputHTMLFromPageNodeTreeToFile(file->root, file->html_output_file, file->html_header,
+                                                 file->html_footer, files, file_count);
+            }
+            
+            if(file->markdown_output_file)
+            {
+                // TODO(rjf)
+            }
+            
+            if(file->bbcode_output_file)
+            {
+                // TODO(rjf)
+            }
         }
     }
     

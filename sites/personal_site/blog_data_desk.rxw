@@ -1,0 +1,270 @@
+@Title {Compile-Time Type Introspection with Data Desk}
+@Date {2019/6/9}
+
+There I am, writing a hypothetical game. In this hypothetical game, let's suppose that I have some collection of data that is used to store information about players. Let's say that, for every player, I have the following data:
+
+@Code
+{
+Vec3 position;
+Vec3 velocity;
+float radius;
+float health;
+}
+
+Great! Now that I have data for my players, I might find multiple scenarios in the codebase where the same operation needs to occur. For example, maybe when the player gets attacked, I'd like them to fly backward and reduce their health. This would need to happen *both* when a player is hit by a projectile, but also when a player is hit by another player's melee attack.
+
+Because this functionality is truly common (and not only superficially similar), I might introduce a function that performs this operation for me, so that every time I need a player to be hit, I can just call into the code that produces the desired effect. This allows me to fling the player backwards and take damage in multiple code locations without duplicating the functionality (and thus making it more difficult to modify):
+
+@Code
+{
+void HitPlayer(Vec3 *player_position, Vec3 *player_velocity, Vec3 *player_radius,
+               Vec3 *player_health, Vec3 attack_position, float attack_radius)
+{
+    if(SpheresIntersect(*player_position, *player_radius, attack_position, attack_radius))
+    {
+        Vec3 hit_vector = Vec3SubtractVec3(*player_position, attack_position);
+        *player_velocity = Vec3AddVec3(*player_velocity, hit_vector);
+        *player_health -= 0.1f;
+    }
+}
+}
+
+Wonderful! Now, any time a player needs to be flung back and to take damage, all I need to do is this:
+
+@Code
+{
+HitPlayer(&player_position, &player_velocity, &player_radius, &player_health, attack_position, attack_radius);
+}
+
+I might find other such scenarios as well, where I have a function meant to operate on all of the player's data, and one that needs to occur in multiple places in the code. Here are a few examples of some possible functions that meet that description:
+
+@Code
+{
+void SavePlayerToDisk(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health);
+void LoadPlayerFromDisk(Vec3 *player_position, Vec3 *player_velocity, float *player_radius, float player_health);
+void PrintPlayer(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health);
+void RenderPlayer(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health);
+}
+
+This is shaping up really nicely. After having a nice discussion with my team, we've decided that the player also needs an armor value. This armor value would almost serve as a second health meter, and would deplete before the player's health does. Maybe the player could run around and pick up power-ups that refill their armor meter. *Why is this separate from the health meter, you ask? Well, the answer is that otherwise, this wouldn't make for a good example for this blog post.*
+
+So, now I know that I have something new to introduce to the collection of player data. All I have to do is enumerate every location that needs to operate on all of the player's data and add a function parameter. Simple!
+
+@Code
+{
+void SavePlayerToDisk(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health, float player_armor);
+void LoadPlayerFromDisk(Vec3 *player_position, Vec3 *player_velocity, float *player_radius, float player_health, float player_armor);
+void PrintPlayer(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health, float player_armor);
+void RenderPlayer(Vec3 player_position, Vec3 player_velocity, float player_radius, float player_health, float player_armor);
+}
+
+Now, before I get a bunch of angry emails about programming techniques, the problem should be obvious here: I'm redundantly specifying information (the data that makes up a "player", as defined by the game). An often overlooked, perhaps more important, factor is the fact that I'm specifying redundant information *that often needs to change*. Every time I want to add some new data to what constitutes a "player", I need to modify a larger and larger number of locations within the code. In other words, I am *implicitly* defining what data comprises a "player" in multiple places.
+
+This is a problem that was identified by language designers very early in software's history, and this is precisely the reason why the abstraction of the struct was introduced. With a struct, I can group this data together, and now the program can be written around semantics about players (instead of individual members of data):
+
+@Code
+{
+struct Player
+{
+    Vec3 position;
+    Vec3 velocity;
+    float radius;
+    float health;
+    float armor;
+};
+}
+
+After this struct is introduced, all of the functions that do the work I need turn into something much simpler and easier to maintain:
+
+@Code
+{
+void SavePlayerToDisk   (struct Player *player);
+void LoadPlayerFromDisk (struct Player *player);
+void PrintPlayer        (struct Player *player);
+void RenderPlayer       (struct Player *player);
+}
+
+Now, in the event that I need to modify what data a "player" is made out of, I can just modify the struct. Additionally, as a smaller (but still significant) benefit, when I write code about "players", I can use those semantics around "players", which might save me some brainpower and some typing.
+
+So, what was good about the introduction of this abstraction? Well, before it was introduced, I was defining the same list of things over and over again: I need the player's health, and the player's position, and the player's velocity, and the player's armor. Imagine scaling this to a collection of hundreds of pieces of data, or to hundreds of functions, or to hundreds of functions operating on hundreds of pieces of data. That would get... *really bad*. It would become very difficult, or perhaps impossible, to modify the code in a reasonable amount of time. Even worse, *even in relatively smaller-scale software*, it isn't really that uncommon for a list of related data to be hundreds of lines long, or to have hundreds of functions that need to operate on the same bundle of data.
+
+In short, the benefit of the introduction of that abstraction was turning this:
+
+@Code
+{
+Vec3 player_position;
+Vec3 player_velocity;
+float player_radius;
+float player_health;
+float player_armor;
+}
+
+Into this:
+
+@Code
+{
+struct Player player;
+}
+
+C's structs are a useful tool for problems like this. It can become very easy to solve the problem of implicitly "defining" multiple structs. However, this concept, as a problem, is not fully solved in C, or in C++, or in a multitude of other languages.
+
+To illustrate this, I can take a function I already used as an example:
+
+@Code
+{
+void PrintPlayer(struct Player *player)
+{
+    printf("Position:  %f %f %f\n", player->position.x, player->position.y, player->position.z);
+    printf("Velocity:  %f %f %f\n", player->velocity.x, player->velocity.y, player->velocity.z);
+    printf("Radius:    %f\n", player->radius);
+    printf("Health:    %f\n", player->health);
+    printf("Armor:     %f\n", player->armor);
+}
+}
+
+Here's a function that takes one of the aforementioned `Player` structs and prints it out. This might be useful for debugging reasons. The function just takes a `Player` instance, and spits out the player's data to the standard output stream so that it can be read by a human.
+
+A detail that is often overlooked in cases like this, though, is that the player's data has, yet again, been *implicitly* defined. It has been implicitly defined in the same way that it was previously, except now, it is being implicitly defined not by *data definitions*, but by *data operations*.
+
+This pattern occurs everywhere. Imagine that, in a map editor for this game, I'd like to have a UI that modifies the player's data, so that there can be easy-to-use controls in the editor that a designer can use to specify details about the way in which players spawn. That might require a function like this:
+
+@Code
+{
+// Let's be generous and assume that the codebase is using immediate-mode UI,
+// so that there aren't three separate functions to maintain for the player's
+// UI code.
+void DoUIForPlayer(struct Player *player)
+{
+    UILabel("%f %f %f", player->position.x, player->position.y, player->position.z);
+    UILabel("%f %f %f", player->velocity.x, player->velocity.y, player->velocity.z);
+    player->radius = UISlider("Radius", 1.f, 10.f);
+    player->health = UISlider("Health", 0.f, 1.f);
+    player->armor  = UISlider("Armor", 0.f, 1.f);
+}
+}
+
+The *same problem exists*, as it exists in many other places: Data serialization code, data *un*serialization code, data comparison code, and the list goes on... And yet the lack of proper abstractions to deal with this kind of a problem (a problem that is incredibly common) remains.
+
+Some programming languages and utilities introduce the concept of run-time type information to solve this problem, so that functions can, for example, loop through the members of a structure and perform an operation for each one (like a printing function). The obvious problem here is that this work *doesn't need to happen at runtime*, and if it does, it is doing a disservice ultimately to the end-users of the product. This is a problem with a solution that is completely knowable at compile-time. C and C++ compilers actually *have* the information required to solve this problem, but they don't allow you to actually use it.
+
+This is why I wrote *Data Desk*; it is a utility program that parses its own data description file format, and lets project-specific code plug into it to use these parsed files to introspect on the data descriptions and generate code based on them.
+
+Take the `Player` struct as an example. In Data Desk, you can declare a structure in (almost) the same way that you would declare it in C:
+
+@Code
+{
+struct Player
+{
+    position : Vec3;
+    velocity : Vec3;
+    radius   : float;
+    health   : float;
+    armor    : float;
+}
+}
+
+You'll notice that the syntax is slightly different, but the semantics of what is happening are identical. When I run Data Desk and pass it this file, it will parse this file, and generate a corresponding abstract syntax tree:
+
+@Image {data/data_desk_ast_example.png}
+
+The information that encodes this abstract syntax tree will be passed to any custom, project-specific code in the form of `DataDeskASTNode` structures.
+
+Suppose, now, that I'd like a printing function in my program for Player (and other structs). To do that, I might mark structures in the Data Desk file as "printable", by adding a `Printable` tag to it, like so:
+
+@Code
+{
+@Printable
+struct Player
+{
+    position : Vec3;
+    velocity : Vec3;
+    radius   : float;
+    health   : float;
+    armor    : float;
+}
+}
+
+My custom, project-specific code can check for tags like this. It can do a quick check to see if a parsed struct is "printable", and if so, it can loop through the members of the parsed structure and generate proper C (or any other language) code for it. The custom code might look something like this:
+
+@Code
+{
+for(DataDeskASTNode *struct_member = first_struct_member;
+    struct_member;
+    struct_member = struct_member->next)
+{
+    if(DataDeskDeclarationIsType(struct_member, "float"))
+    {
+        // Generate a printf call for a float.
+    }
+    else if(DataDeskDeclarationIsType(struct_member, "Vec3"))
+    {
+        // Generate a printf call for a Vec3.
+    }
+    else if(DataDeskDeclarationIsType(struct_member, "int"))
+    {
+        // Generate a printf call for a int.
+    }
+    else
+    {
+        // Unhandled type.
+    }
+}
+}
+
+This is the simplest case, but this kind of code structure already handles a lot. However, because Data Desk doesn't assume your intentions, it will just pass the custom code its parsed abstract syntax trees, so the custom code can employ more complex techniques to squeeze out even more if it needs to. It is perfectly doable for the custom code to recursively descend into the abstract syntax tree structure declarations so that a printing function could print all members of all sub-structs within a struct, which might look something like this:
+
+@Code
+{
+void GeneratePrintCode(DataDeskASTNode *first_struct_member)
+{
+    for(DataDeskASTNode *struct_member = first_struct_member;
+        struct_member;
+        struct_member = struct_member->next)
+    {
+        if(DataDeskDeclarationIsStruct(struct_member))
+        {
+            // This is a little unwieldy because it needs to access the first structure member
+            // of the declaration node's type usage node. This could probably be cleaned up, but
+            // it works nevertheless. This is a bit clearer if the DataDeskASTNode struct is examined.
+            GeneratePrintCode(struct_member->declaration.type->struct_declaration->struct_declaration.first_member);
+        }
+        else if(DataDeskDeclarationIsType(struct_member, "float"))
+        {
+            // Generate a printf call for a float.
+        }
+        else if(DataDeskDeclarationIsType(struct_member, "Vec3"))
+        {
+            // Generate a printf call for a Vec3.
+        }
+        else if(DataDeskDeclarationIsType(struct_member, "int"))
+        {
+            // Generate a printf call for a int.
+        }
+        else
+        {
+            // Unhandled type.
+        }
+    }
+}
+}
+
+One immediately clear objection that one might have is that not every function like this is quite an implicit redefinition of the structure that it works on. For example, a printing function might require certain members to not be printed, or a UI function might require certain struct fields to not have UI code generated for them. Tags can also be added to declarations in structs, so that more meta-information can be specified about them. In the printing function case, I can introduce a `NoPrint` tag to certain struct members that signals to the custom code that I'd like for it to *not* generate any printing code for the fields that are marked with it:
+
+@Code
+{
+@Printable
+struct Player
+{
+    position : Vec3;
+    velocity : Vec3;
+    radius   : float;
+    @NoPrint health   : float;
+    @NoPrint armor    : float;
+}
+}
+
+The returns of this tool have already been massive in my own projects. I've used Data Desk's introspection capabilities so far to generate printing functions, UI functions, data serialization functions, and more. I've also leveraged it to do other kinds of compile-time work which greatly reduces the workload of programs at runtime (which is ultimately better for the user), including shader compilation, generation of vertex information for maps in @Link {"Dungeoneer", "dungeoneer.html"}, and automatic generation of flag constants.
+
+This really only scrapes the surface of what compile-time execution, introspection, and code-generation are capable of, but it's a much-needed piece of them in a programmer's everyday life. I think this area is hugely underexplored, and I think that the returns in this area are largely untapped. Data Desk doesn't solve this problem, but I think it provides some immediate returns while giving a glimpse of the kind of possible benefits that are achievable. Some other interesting exploration happening in this area is the arbitrary compile-time execution featured in the Jai language, @Link {"which is being developed by Thekla, Inc", "http://the-witness.net/news/"}.
+
+If you'd like to see, learn more about, or use Data Desk, its code is @Link {"publicly available for free", "https://github.com/ryanfleury/data_desk"}. Due to the experimental nature of this tool and the extreme lack of exploration in this area, there are probably several improvements that would help make it better. If you have any thoughts, feel free to @Link {"contact me with them", "contact.html"}.
