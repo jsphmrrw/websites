@@ -992,6 +992,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
 typedef struct FileProcessData
 {
     int output_flags;
+    char *filename_no_extension;
     char *html_output_path;
     char *md_output_path;
     char *bbcode_output_path;
@@ -1006,6 +1007,7 @@ typedef struct ProcessedFile
     char *filename;
     char *main_title;
     char *description;
+    char *url;
     int date_year;
     int date_month;
     int date_day;
@@ -1371,10 +1373,17 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
     fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">\n");
     fprintf(file, "<title>%s | Ryan Fleury</title>\n", page->main_title);
     fprintf(file, "<meta property=\"og:title\" content=\"%s\">\n", page->main_title);
+    fprintf(file, "<meta name=\"twitter:title\" content=\"%s\">\n", page->main_title);
     if (page->description) {
         fprintf(file, "<meta name=\"description\" content=\"%s\">\n", page->description);
         fprintf(file, "<meta property=\"og:description\" content=\"%s\">\n", page->description);
+        fprintf(file, "<meta name=\"twitter:description\" content=\"View the album on Flickr.\">\n", page->description);
     }
+    fprintf(file, "<meta property=\"og:type\" content=\"website\">\n");
+    fprintf(file, "<meta property=\"og:url\" content=\"http://ryanfleury.net/%s\">\n", page->url);
+    fprintf(file, "<meta property=\"og:site_name\" content=\"Ryan Fleury\">\n");
+    fprintf(file, "<meta name=\"twitter:card\" content=\"summary\">\n");
+    fprintf(file, "<meta name=\"twitter:site\" content=\"@ryanjfleury\">\n");
     fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">\n");
     fprintf(file, "</head>\n");
     fprintf(file, "<body>\n");
@@ -1442,6 +1451,8 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
+
+        processed_file.url = ParseContextAllocateCStringCopy(context, process_data->filename_no_extension);
         
         if(process_data->output_flags & OUTPUT_HTML)
         {
@@ -1593,6 +1604,7 @@ main(int argument_count, char **arguments)
             FileProcessData process_data = {0};
             {
                 process_data.output_flags = output_flags;
+                process_data.filename_no_extension = filename_no_extension;
                 process_data.html_output_path = html_output_path;
                 process_data.md_output_path = md_output_path;
                 process_data.bbcode_output_path = bbcode_output_path;
