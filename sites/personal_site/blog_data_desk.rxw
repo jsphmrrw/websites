@@ -1,4 +1,5 @@
 @Title {Compile-Time Type Introspection with Data Desk}
+@Description {Some description for search engine previews and snippets when shared on social media.}
 @Date {2019/6/9}
 
 There I am, writing a hypothetical game. In this hypothetical game, let's suppose that I have some collection of data that is used to store information about players. Let's say that, for every player, I have the following data:

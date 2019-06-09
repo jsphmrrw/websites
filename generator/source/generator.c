@@ -71,6 +71,7 @@ enum
     PAGE_NODE_TYPE_invalid,
     PAGE_NODE_TYPE_title,
     PAGE_NODE_TYPE_sub_title,
+    PAGE_NODE_TYPE_description,
     PAGE_NODE_TYPE_text,
     PAGE_NODE_TYPE_paragraph_break,
     PAGE_NODE_TYPE_unordered_list,
@@ -517,6 +518,27 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                 else
                 {
                     PushParseError(context, tokenizer, "A sub-title tag expects {<subtitle text>} to follow.");
+                }
+            }
+
+            else if(TokenMatch(tag, "@Description"))
+            {
+                Token description_text = {0};
+                if(RequireToken(tokenizer, "{", 0) &&
+                   RequireTokenType(tokenizer, TOKEN_text, &description_text) &&
+                   RequireToken(tokenizer, "}", 0))
+                {
+                    PageNode *node = ParseContextAllocateNode(context);
+                    node->type = PAGE_NODE_TYPE_description;
+                    node->string = description_text.string;
+                    node->string_length = description_text.string_length;
+                    node->text_style_flags = text_style_flags;
+                    *node_store_target = node;
+                    node_store_target = &(*node_store_target)->next;
+                }
+                else
+                {
+                    PushParseError(context, tokenizer, "A description tag expects {<description text>} to follow.");
                 }
             }
             
@@ -970,6 +992,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
 typedef struct FileProcessData
 {
     int output_flags;
+    char *filename_no_extension;
     char *html_output_path;
     char *md_output_path;
     char *bbcode_output_path;
@@ -983,6 +1006,8 @@ typedef struct ProcessedFile
     PageNode *root;
     char *filename;
     char *main_title;
+    char *description;
+    char *url;
     int date_year;
     int date_month;
     int date_day;
@@ -1290,13 +1315,12 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
             }
             case PAGE_NODE_TYPE_feature_button:
             {
-                fprintf(file, "<div class=\"feature_button\"\">\n");
+                fprintf(file, "<div class=\"feature_button\">\n");
                 fprintf(file, "<a href=\"%.*s\">\n",
                         node->feature_button.link_length, node->feature_button.link);
                 
-                fprintf(file, "<div class=\"feature_button_image\" style=\"background-image: url('%.*s');\n\">\n",
+                fprintf(file, "<div class=\"feature_button_image\" style=\"background-image: url('%.*s');\"></div>\n",
                         node->feature_button.image_path_length, node->feature_button.image_path);
-                fprintf(file, "</div>\n");
                 
                 fprintf(file, "<div class=\"feature_button_text\">\n");
                 fprintf(file, "%.*s\n", node->string_length, node->string);
@@ -1337,25 +1361,43 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
 }
 
 static void
-OutputHTMLFromPageNodeTreeToFile(PageNode *node, FILE *file, char *header, char *footer,
-                                 ProcessedFile *files, int file_count)
+OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int file_count)
 {
+    FILE *file = page->html_output_file;
     fprintf(file, "<!DOCTYPE html>\n");
-    fprintf(file, "<html>\n");
+    fprintf(file, "<html lang=\"en\">\n");
     fprintf(file, "<head>\n");
-    fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">");
+    fprintf(file, "<meta charset=\"utf-8\">");
+    // NOTE(bvisness): Consider adding mobile-friendly styles and then adding this line
+    // fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">\n");
+    fprintf(file, "<title>%s | Ryan Fleury</title>\n", page->main_title);
+    fprintf(file, "<meta property=\"og:title\" content=\"%s\">\n", page->main_title);
+    fprintf(file, "<meta name=\"twitter:title\" content=\"%s\">\n", page->main_title);
+    if (page->description) {
+        fprintf(file, "<meta name=\"description\" content=\"%s\">\n", page->description);
+        fprintf(file, "<meta property=\"og:description\" content=\"%s\">\n", page->description);
+        fprintf(file, "<meta name=\"twitter:description\" content=\"View the album on Flickr.\">\n", page->description);
+    }
+    fprintf(file, "<link rel=\"canonical\" href=\"http://ryanfleury.net/%s\">\n", page->url);
+    fprintf(file, "<meta property=\"og:type\" content=\"website\">\n");
+    fprintf(file, "<meta property=\"og:url\" content=\"http://ryanfleury.net/%s\">\n", page->url);
+    fprintf(file, "<meta property=\"og:site_name\" content=\"Ryan Fleury\">\n");
+    fprintf(file, "<meta name=\"twitter:card\" content=\"summary\">\n");
+    fprintf(file, "<meta name=\"twitter:site\" content=\"@ryanjfleury\">\n");
+    fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">\n");
     fprintf(file, "</head>\n");
     fprintf(file, "<body>\n");
-    if(header)
+    if(page->html_header)
     {
-        fprintf(file, "%s", header);
+        fprintf(file, "%s", page->html_header);
     }
     fprintf(file, "<div class=\"page_content\">\n");
-    OutputHTMLFromPageNodeTreeToFile_(node, file, 1, files, file_count);
+    OutputHTMLFromPageNodeTreeToFile_(page->root, file, 1, files, file_count);
     fprintf(file, "</div>\n");
-    if(footer)
+    if(page->html_footer)
     {
-        fprintf(file, "%s", footer);
+        fprintf(file, "%s", page->html_footer);
     }
     fprintf(file, "</body>\n");
     fprintf(file, "</html>\n");
@@ -1390,6 +1432,15 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
+
+        for(PageNode *node = page; node; node = node->next)
+        {
+            if(node->type == PAGE_NODE_TYPE_description)
+            {
+                processed_file.description = ParseContextAllocateCStringCopyN(context, node->string, node->string_length);
+                break;
+            }
+        }
         
         for(PageNode *node = page; node; node = node->next)
         {
@@ -1401,6 +1452,8 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
+
+        processed_file.url = ParseContextAllocateCStringCopy(context, process_data->filename_no_extension);
         
         if(process_data->output_flags & OUTPUT_HTML)
         {
@@ -1552,6 +1605,7 @@ main(int argument_count, char **arguments)
             FileProcessData process_data = {0};
             {
                 process_data.output_flags = output_flags;
+                process_data.filename_no_extension = filename_no_extension;
                 process_data.html_output_path = html_output_path;
                 process_data.md_output_path = md_output_path;
                 process_data.bbcode_output_path = bbcode_output_path;
@@ -1593,8 +1647,7 @@ main(int argument_count, char **arguments)
             
             if(file->html_output_file)
             {
-                OutputHTMLFromPageNodeTreeToFile(file->root, file->html_output_file, file->html_header,
-                                                 file->html_footer, files, file_count);
+                OutputHTMLFromPageNodeTreeToFile(file, files, file_count);
             }
             
             if(file->markdown_output_file)
