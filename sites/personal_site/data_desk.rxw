@@ -1,3 +1,19 @@
+@Description {Data Desk is a compile-time introspection and code generation tool for C and C++.}
+
+@Link {"← Back to Projects", "projects.html"}
+
 @Title {Data Desk}
 
-Intentionally left blank (for now).
+Data Desk is a utility program that I originally wrote as a metaprogramming tool for @Link {"The Melodist", "melodist.html"}. Its purpose is to provide something that I think is missing from C and C++: Properly implemented compile-time type introspection and introspection-based code generation. I've used it for many different kinds of compile-time work in my projects, including entity boilerplate code generation, UI code generation to automatically implement UI that modifies structures, and vertex data generation for maps in @Link {"Dungeoneer", "dungeoneer.html"}.
+
+The source code for Data Desk, documentation, and examples can all be @Link {"found online for free", "https://github.com/ryanfleury/data_desk"}. Additionally, here are some prebuilt binaries for a few common platforms: @Link {"Windows (x64)", "data/data_desk_win64.exe" }, @Link {"Windows (x86)", "data/data_desk_win32.exe" }
+
+@SubTitle {Screenshots}
+
+@ThumbnailImage { data/data_desk_screenshot_1.png }
+@ThumbnailImage { data/data_desk_screenshot_2.png }
+@ThumbnailImage { data/data_desk_screenshot_3.png }
+
+@SubTitle {Video Demonstration}
+
+@YouTube {https://www.youtube.com/watch?v=w66yGWhfS4k}

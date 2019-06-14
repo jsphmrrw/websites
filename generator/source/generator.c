@@ -5,6 +5,7 @@
 #define MemoryCopy memcpy
 #define CalculateCStringLength strlen
 #define CStringToInt atoi
+#define QuickSort qsort
 
 #define Log(...) { fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); }
 
@@ -79,6 +80,7 @@ enum
     PAGE_NODE_TYPE_code,
     PAGE_NODE_TYPE_youtube,
     PAGE_NODE_TYPE_image,
+    PAGE_NODE_TYPE_thumbnail_image,
     PAGE_NODE_TYPE_link,
     PAGE_NODE_TYPE_feature_button,
     PAGE_NODE_TYPE_lister,
@@ -520,7 +522,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     PushParseError(context, tokenizer, "A sub-title tag expects {<subtitle text>} to follow.");
                 }
             }
-
+            
             else if(TokenMatch(tag, "@Description"))
             {
                 Token description_text = {0};
@@ -590,7 +592,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                 }
             }
             
-            else if(TokenMatch(tag, "@Image"))
+            else if(TokenMatch(tag, "@Image") || TokenMatch(tag, "@ThumbnailImage"))
             {
                 Token open_bracket = {0};
                 if(RequireToken(tokenizer, "{", &open_bracket))
@@ -619,7 +621,9 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     }
                     
                     PageNode *node = ParseContextAllocateNode(context);
-                    node->type = PAGE_NODE_TYPE_image;
+                    node->type = TokenMatch(tag, "@ThumbnailImage") ?
+                        PAGE_NODE_TYPE_thumbnail_image : PAGE_NODE_TYPE_image;
+                    
                     node->string = link;
                     node->string_length = link_length;
                     node->text_style_flags = text_style_flags;
@@ -1023,22 +1027,108 @@ typedef struct ProcessedFile
 }
 ProcessedFile;
 
+static int
+ProcessedFileSortFunction(const void *file1_, const void *file2_)
+{
+    int result = 0;
+    
+    const ProcessedFile *file1 = file1_;
+    const ProcessedFile *file2 = file2_;
+    
+    if(file1->date_year < file2->date_year)
+    {
+        result = 1;
+    }
+    else if(file1->date_year == file2->date_year)
+    {
+        if(file1->date_month < file2->date_month)
+        {
+            result = 1;
+        }
+        else if(file1->date_month == file2->date_month)
+        {
+            if(file1->date_day < file2->date_day)
+            {
+                result = 1;
+            }
+            else if(file1->date_day == file2->date_day)
+            {
+                result = 0;
+            }
+            else if(file1->date_day > file2->date_day)
+            {
+                result = -1;
+            }
+        }
+        else if(file1->date_month > file2->date_month)
+        {
+            result = -1;
+        }
+    }
+    else if(file1->date_year > file2->date_year)
+    {
+        result = -1;
+    }
+    
+    return result;
+}
+
 static void
 OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, ProcessedFile *files, int file_count)
 {
     int paragraph_active = 0;
+    int thumbnails_active = 0;
+    int found_title = 0;
     
-    for(; node; node = node->next)
+    PageNode *date = 0;
+    for(date = node; date; date = date->next)
+    {
+        if(date->type == PAGE_NODE_TYPE_date)
+        {
+            break;
+        }
+    }
+    
+    static char *month_names[] = {
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    };
+    
+    PageNode *previous_node = 0;
+    
+    for(; node; previous_node = node, node = node->next)
     {
         switch(node->type)
         {
             case PAGE_NODE_TYPE_title:
             {
                 fprintf(file, "<h1>%.*s</h1>\n", node->string_length, node->string);
+                
+                if(!found_title && date)
+                {
+                    found_title = 1;
+                    fprintf(file, "<h2>%i %s %i</h2>\n",
+                            date->date.day, month_names[date->date.month-1], date->date.year);
+                }
+                
                 break;
             }
             case PAGE_NODE_TYPE_sub_title:
             {
+                if(previous_node && previous_node->type != PAGE_NODE_TYPE_title)
+                {
+                    fprintf(file, "<hr><br>\n");
+                }
                 fprintf(file, "<h2>%.*s</h2>\n", node->string_length, node->string);
                 break;
             }
@@ -1306,11 +1396,38 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 fprintf(file, "<div class=\"image_container\"><img class=\"image\" src=\"%.*s\"></div>\n", node->string_length, node->string);
                 break;
             }
+            case PAGE_NODE_TYPE_thumbnail_image:
+            {
+                if(!thumbnails_active)
+                {
+                    thumbnails_active = 1;
+                    fprintf(file, "<div class=\"thumbnail_image_container\">");
+                }
+                fprintf(file, "<a href=\"%.*s\"><img class=\"thumbnail_image\" src=\"%.*s\"></a>",
+                        node->string_length, node->string,
+                        node->string_length, node->string);
+                if(thumbnails_active && (!node->next || node->next->type != PAGE_NODE_TYPE_thumbnail_image))
+                {
+                    thumbnails_active = 0;
+                    fprintf(file, "</div>\n");
+                }
+                break;
+            }
             case PAGE_NODE_TYPE_link:
             {
-                fprintf(file, "<a class=\"link\" href=\"%.*s\">%.*s</a>",
-                        node->link.url_length, node->link.url,
-                        node->string_length, node->string);
+                if(paragraph_active)
+                {
+                    fprintf(file, "<a class=\"link\" href=\"%.*s\">%.*s</a>",
+                            node->link.url_length, node->link.url,
+                            node->string_length, node->string);
+                }
+                else
+                {
+                    fprintf(file, "<div class=\"standalone_link_container\"><a class=\"link\" href=\"%.*s\">%.*s</a></div>",
+                            node->link.url_length, node->link.url,
+                            node->string_length, node->string);
+                }
+                
                 break;
             }
             case PAGE_NODE_TYPE_feature_button:
@@ -1432,7 +1549,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
-
+        
         for(PageNode *node = page; node; node = node->next)
         {
             if(node->type == PAGE_NODE_TYPE_description)
@@ -1452,7 +1569,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
-
+        
         processed_file.url = ParseContextAllocateCStringCopy(context, process_data->filename_no_extension);
         
         if(process_data->output_flags & OUTPUT_HTML)
@@ -1627,7 +1744,7 @@ main(int argument_count, char **arguments)
         }
     }
     
-    // NOTE(rjf): Print errors
+    // NOTE(rjf): Print errors.
     if(context.error_stack_size > 0)
     {
         for(int i = 0; i < context.error_stack_size; ++i)
@@ -1637,6 +1754,13 @@ main(int argument_count, char **arguments)
                     context.error_stack[i].line,
                     context.error_stack[i].message);
         }
+    }
+    
+    // NOTE(rjf): Sort files by date.
+    {
+        
+        QuickSort(files, file_count, sizeof(ProcessedFile), ProcessedFileSortFunction);
+        
     }
     
     // NOTE(rjf): Generate code for all processed files.

@@ -1,0 +1,619 @@
+@Link {"← Back to Blog", "blog.html"}
+
+@Title {A Custom Scripting Language From Scratch (Part 1) }
+@Description {An overview of The Melodist's custom scripting engine, written from scratch in C.}
+@Date {2019/6/10}
+
+@SubTitle {Motivation}
+
+While designing @Link {"The Melodist", "melodist.html"}, I came across the requirement of dialogue sequences and in-engine cutscenes. I wanted the game's dialogue sequences to allow the player to choose what they say, and support the conversation structure that such a system requires. This means that I needed a tool that would allow me to express such branches. I also wanted these conversations to have the ability to depend on game state; a character might say something different depending on how far the player has progressed.
+
+With requirements like these, a scripting language seemed like my best option, but I had never implemented one myself before. Many would suggest using something like Lua or another option, but I wanted to maintain my control over what the scripting language would support, how it would call into native code. For these reasons and others (mainly wanting to further my own personal education on the subject), I decided to write my own scripting language for the game.
+
+At the time, my parsers were written in a "fast-and-loose" fashion. I could see fairly early that this method wouldn't be possible if I wanted to support language features like nested branches and sub-expressions, or have readable and useful error messages. I began researching how programming language parsers are structured, and how they work.
+
+@SubTitle {Language Syntax}
+
+I first had to think about the syntax of the language that I wanted to write a parser for. I didn't need many features; variables, control-flow logic (loops and conditionals), expressions, and procedure calls would cover the vast majority of what I needed. I decided to go with mostly C-style syntax, but with a few modifications that I preferred for aesthetic reasons (later I would discover that these decisions were actually useful in writing a parser, as C syntax can be more complicated to parse than one might initially assume).
+
+I settled on the following syntax initially, but I wanted to maintain the code's flexibility such that I could make modifications later if necessary.
+
+@Code
+{
+// High-level scripting language; just want a way to use numeric values. For this reason,
+// just a number type that can hold both integral and non-integral values would be fine.
+// I also made the decision to have the scripting language be strongly typed, because it
+// seems to catch bugs more easily than dynamic typed languages can.
+var_1 : number = 2;
+
+// Very basic type inference for declarations. If a type is not manually specified, infer
+// it from the assignment.
+var_2 := 3;
+
+// No parentheses needed around if-expressions.
+if var_1 + var_2 > 4
+{
+    SomeGameProcedure(var_1 + var_2);
+}
+
+}
+
+@SubTitle {The Abstract Syntax Tree}
+
+I quickly stumbled across the concept of an abstract syntax tree, which is a data structure that effectively stores, and allows useful traversal of, the important information buried within input source code. An abstract syntax tree is wrenched from the textual content of source code, and with good reason; text, as a form of input, has a monstrously large number of input states. An abstract syntax tree's goal is to contain the information that is actually cared about from this textual input, while discarding the information that isn't important.
+
+Take, for example, this expression:
+
+@Code
+{
+int x;
+if (10 > (3 + 6))
+{
+    x = 7 + (5 * 3);
+}
+else
+{
+    x = 2 + 7/(4+(3*1));
+}
+}
+
+Iterating this string of text linearly to produce the desired result, while perhaps possible, will be incredibly difficult and, ultimately, results in the parsing code being extraordinarily brittle. Some assumptions about the nature of the input might not hold true for all acceptable language inputs, and the second those assumptions are no longer the case (for some given input), the parser will break. Instead, an abstract syntax tree can be generated:
+
+@Image {data/ast_example.png}
+
+Then, to generate code, it's just a matter of traversing the abstract syntax tree with simple generation rules for each tree node.
+
+@SubTitle {Tokenization}
+
+An abstract syntax tree sounds all well and good, but how is one generated from input source code? The answer to such a question is *parsing*. The first important thing I realized about parsers is that it isn't convenient for them to work on units as granular as characters; often times, the parser isn't considering a single character, but rather some number of them. If the parser gets the input text `123.456`, it doesn't want to consider:
+
+@Code
+{
+'1'
+'2'
+'3'
+'.'
+'4'
+'5'
+'6'
+}
+
+It wants to consider the less-granular unit of:
+
+@Code
+{
+123.456
+}
+
+My first step was to write a tokenizer. In order to write a parser, I wanted the code to be in semantics regarding these tokens, because that is the smallest possible unit that the parser will care about. Writing the parser in these terms does lose the lower-level, more granular control and consideration of characters, but in cases like this, where some abstraction holds for all possible interaction points between two systems, I think ignoring the lower-level unit of smaller-granularity, the character, is a benefit. I don't care about the lower-level, more granular control over characters, because the only part of the characters that matters is what they *combine to form*. Because of this reasoning, this seemed like a worthy tradeoff to me.
+
+Once the tokenizer was settled on, there seemed to be two options to me: Generating a token buffer, or stepping linearly through the input character buffer and tokenizing it as it is swept through. Initially, I had the idea of first generating a token buffer. This would work, and has the benefit that the parser has the ability of randomly accessing some token given a specific index. However, it has the drawback of requiring some form of memory allocation.
+
+I had to ask the question whether the ability to randomly access tokens was actually something that the parser needed to do. It seemed to be the case that it really wasn't something that needed to happen often; in the vast majority of cases, tokens are considered linearly, and in a few small minority of cases, a small subset of surrounding local tokens needs to be considered. For example, consider the following "language":
+
+@Code
+{
+foo : int; // Variable declaration in the form <name> : <type>
+bar :: 5;  // Constant definition in the form <name> :: <value>
+}
+
+In the event that an identifier token is found, to understand what that identifier is signaling, the following token must be read. A `:` signals a variable declaration, and a `::` signals a constant declaration. However, reading this in a linear tokenizer is as simple as backing up the position of the tokenizer and resetting, *or* storing off the token that contains the identifier information so that it can be used later. A linear tokenizer seemed to be the better set of tradeoffs to me for the properties that I cared about, and it maintained minimization of allocation, speed, and simplicity.
+
+The most granular of tokenizer functions that I cared about started with me first wanting the ability to get a token given some `char` buffer:
+
+@Code
+{
+typedef enum TokenType TokenType;
+enum TokenType
+{
+    // Token types
+};
+
+typedef struct Token Token;
+struct Token
+{
+    TokenType type;
+    // Note that I am storing both a pointer to the beginning of the token string
+    // and also the length. The string cannot be assumed to be null-terminated,
+    // because it will point directly into the original input character buffer.
+    // This saves me from needing dynamic memory allocation.
+    char *string;
+    int string_length;
+};
+
+Token GetNextTokenFromCharacterBuffer(char *buffer)
+{
+    Token token = {0};
+    // Search the buffer and form a token if possible.
+    return token;
+}
+}
+
+This structure makes tokenization simple, and due to the allocation-less tokens, the only function actually happening here is the extraction of important information from a buffer with no side-effects. I found that the `GetNextTokenFromCharacterBuffer` makes for an extremely nice-to-use, granular, and low-level tokenization function. The internals of that function look a bit like this:
+
+@Code
+{
+Token token = {0};
+
+for(int i = 0; buffer[i]; ++i)
+{
+    if(CharIsAlpha(buffer[i]) || buffer[i] == '_')
+    {
+        token.string = buffer+i;
+        token.string_length = ...; // Calculate this, depending on token-termination rules
+        token.type = TOKEN_TYPE_alphanumeric_block;
+        goto found_token;
+    }
+    else if(CharIsDigit(buffer[i]))
+    {
+        token.string = buffer+i;
+        token.string_length = ...; // Calculate this, depending on token-termination rules
+        token.type = TOKEN_TYPE_numeric_block;
+        goto found_token;
+    }
+    else if(CharIsSymbol(buffer[i]))
+    {
+        token.string = buffer+i;
+        token.string_length = ...; // Calculate this, depending on token-termination rules
+        token.type = TOKEN_TYPE_symbolic_block;
+        goto found_token;
+    }
+    else
+    {
+        // Other cases.
+    }
+}
+
+found_token:;
+return token;
+}
+
+Using this function, I found that I could write a number of other, more useful tokenization and parsing functions. The best part of this setup is that all code pertaining to how the text is tokenized is centralized, so if tokenization needs to be modified, only this one location needs to change. This was especially useful in my case, where I wanted to be able to modify syntax of the scripting language easily.
+
+I found out that all tokenizer state was more than just a character buffer to read from; specifically, the tokenizer needs to know about location-information like what line it is on, what character within the line it's on, and what file it's in. I introduced a struct to bundle this information together, as it normally has to be accessed together:
+
+@Code
+{
+typedef struct Tokenizer Tokenizer;
+struct Tokenizer
+{
+    char *at;         // Where the tokenizer is at in its scan.
+    char *filename;   // The name of the file that the tokenizer is currently scanning.
+    int line;         // The line number on which the tokenizer's scanning position is on.
+    int char;         // The character number on which the tokenizer's scanning position is on.
+};
+}
+
+Three common tokenization functions that I found were extraordinarily useful when writing the language parser where the following extremely simple functions:
+
+@Code
+{
+// Grabs the next token from the tokenizer's position and returns it
+// without advancing the tokenizer's position.
+Token PeekToken(Tokenizer *tokenizer)
+{
+    return GetNextTokenFromCharacterBuffer(tokenizer->at);
+}
+
+// Returns 1 if the passed token string was found, or 0 otherwise.
+// If the expected token was found, advance the tokenizer, and store
+// the found token at token_ptr (if it is not null). 
+int RequireToken(Tokenizer *tokenizer, char *string, Token *token_ptr)
+{
+    int match = 0;
+    Token token = PeekToken(tokenizer);
+    if(TokenMatch(token, string))
+    {
+        match = 1;
+        if(token_ptr)
+        {
+            *token_ptr = token;
+        }
+    }
+    return match;
+}
+
+// Returns 1 if the passed token type was found, or 0 otherwise.
+// If the expected token was found, advance the tokenizer, and store
+// the found token at token_ptr (if it is not null).
+int RequireTokenType(Tokenizer *tokenizer, TokenType type, Token *token_ptr)
+{
+    int match = 0;
+    Token token = PeekToken(tokenizer);
+    if(token.type == type)
+    {
+        match = 1;
+        if(token_ptr)
+        {
+            *token_ptr = token;
+        }
+    }
+    return match;
+}
+}
+
+I found that these three functions provided almost all the functionality from the tokenizer I actually needed in the parser. For example, if I wanted to parse a declaration, I could accomplish that with the following code:
+
+@Code
+{
+Token identifier = {0};
+if(RequireTokenType(tokenizer, TOKEN_TYPE_alphanumeric_block, &identifier))
+{
+    if(RequireToken(tokenizer, ":", 0))
+    {
+        // Parse type usage, and create a declaration node that is bound to identifier.
+    }
+    else if(RequireToken(tokenizer, ":=", 0))
+    {
+        // Infer type from following expression, and create a declaration node that is bound to identifier.
+    }
+    else
+    {
+        // Something else that starts with an identifier
+    }
+}
+else
+{
+    // Something else
+}
+}
+
+An important property about the structure of the above code is that there is always a place where error detection can occur. Every time I branch on the result of `RequireToken` or `RequireTokenType`, I can have an else-case where I either handle other possibilities *or* detect an unexpected case and push an error message.
+
+After this was all in place, I was ready to start writing the parser.
+
+@SubTitle {The Parser}
+
+The first important part of the parser to lock down was the structure of the abstract syntax tree in code. I decided to have a simple structure that held some information common to all abstract syntax tree nodes, with a union that could hold more specific node information. It looks something like this:
+
+@Code
+{
+typedef enum ASTNodeType ASTNodeType;
+enum ASTNodeType
+{
+    AST_NODE_TYPE_null,
+    AST_NODE_TYPE_declaration,
+    AST_NODE_TYPE_identifier,
+    AST_NODE_TYPE_binary_operator,
+    AST_NODE_TYPE_unary_operator,
+    AST_NODE_TYPE_numeric_constant,
+    AST_NODE_TYPE_type_usage,
+    AST_NODE_TYPE_procedure_call,
+    AST_NODE_TYPE_conditional,
+};
+
+typedef struct ASTNode ASTNode;
+struct ASTNode
+{
+    ASTNodeType type;
+    char *string;
+    int string_length;
+    ASTNode *next;
+    
+    union
+    {
+    
+        struct Declaration
+        {
+            ASTNode *type;
+        }
+        declaration;
+        
+        struct BinaryOperator
+        {
+            BinaryOperatorType type;
+            ASTNode *left;
+            ASTNode *right;
+        }
+        binary_operator;
+        
+        struct UnaryOperator
+        {
+            UnaryOperatorType type;
+            ASTNode *operand;
+        }
+        unary_operator;
+        
+        struct ProcedureCall
+        {
+            ASTNode *procedure;
+            ASTNode *first_argument;
+        }
+        procedure_call;
+        
+        struct Conditional
+        {
+            ASTNode *condition;
+            ASTNode *pass_code;
+            ASTNode *fail_code;
+        }
+        conditional;
+        
+        // Other node-specific data in here
+        
+    };
+};
+}
+
+Now that I had an abstract syntax tree structure I could fill out, I just needed to write code to actually do that, building on top of my existing tokenization code. Most of the parsing functionality is fairly natural, similar to the declaration case. However, parsing expressions while maintaining operator-precedence was an interesting problem.
+
+I learned later that there are many different techniques for writing expression parsers, but my initial implementation, the one I have kept, was derived from evolving my first attempt into something functional. The idea I had was to parse expressions from left-to-right, always considering the rest of the expression (everything to the right of some position) to be a sub-expression to be recursively parsed. That implementation looks like this:
+
+@Code
+{
+ASTNode *ParseExpression(Tokenizer *tokenizer)
+{
+    ASTNode *expression = 0;
+    
+    Token token = PeekToken(tokenizer);
+    
+    // First, expect a prefix unary operator.
+    if(token.type == TOKEN_TYPE_symbolic_block)
+    {
+        NextToken(tokenizer);
+        UnaryOperatorType op_type = GetUnaryOperatorTypeFromToken(token);
+        if(op_type != UNARY_OPERATOR_TYPE_invalid)
+        {
+            expression = AllocateNode(...);
+            expression->type = AST_NODE_TYPE_unary_operator;
+            expression->unary_operator.type = op_type;
+            expression->unary_operator.operand = ParseExpression(tokenizer);
+        }
+    }
+    
+    // If we find a (, we should be expecting a sub-expression, so recursively descend
+    // to parse it.
+    else if(TokenMatch(token, "("))
+    {
+        NextToken(tokenizer);
+        expression = ParseExpression(tokenizer);
+    }
+    
+    // Last case, we've found something starting with an alphanumeric block; assume it
+    // is an identifier.
+    else if(token.type == TOKEN_TYPE_alphanumeric_block)
+    {
+        NextToken(tokenizer);
+        expression = AllocateNode(...);
+        expression->type = AST_NODE_TYPE_identifier;
+        expression->string = token.string;
+        expression->string_length = token.string_length;
+    }
+    
+    // Unexpected token, error.
+    else
+    {
+        // Push error message. Unexpected token.
+        goto end_parse;
+    }
+    
+    // Look at next token.
+    token = PeekToken(tokenizer);
+    
+    // If the next token is a symbolic block, we're looking at either a post-fix
+    // unary operator, binary operator, or procedure call. Anything else should be
+    // an error.
+    if(token.type == TOKEN_TYPE_symbolic_block)
+    {
+        BinaryOperatorType binary_op_type = GetBinaryOperatorTypeFromToken(token);
+        UnaryOperatorType unary_op_type = GetUnaryOperatorTypeFromToken(token);
+        
+        // If we found a valid binary operator type, then we'll treat this
+        // as a binary operator first.
+        if(binary_op_type != BINARY_OPERATOR_TYPE_null)
+        {
+            NextToken(tokenizer);
+            ASTNode *op = AllocateNode(...);
+            op->type = AST_NODE_TYPE_binary_operator;
+            op->binary_operator.type = binary_op_type;
+            op->binary_operator.left = expression;
+            op->binary_operator.right = ParseExpression(tokenizer);
+            expression = op;
+        }
+        
+        // If we found a valid unary operator type, we'll treat this as a unary
+        // operator.
+        else if(unary_op_type != BINARY_OPERATOR_TYPE_null)
+        {
+            NextToken(tokenizer);
+            ASTNode *op = AllocateNode(...);
+            op->type = AST_NODE_TYPE_unary_operator;
+            op->unary_operator.type = unary_op_type;
+            op->unary_operator.operand = expression;
+            expression = op;
+        }
+        
+        // If we found an opening paren here (and didn't find an appropriate operator
+        // before it), then this is a procedure call case.
+        else if(TokenMatch(token, "("))
+        {
+            NextToken(tokenizer);
+            ASTNode *proc = AllocateNode(...);
+            proc->type = AST_NODE_TYPE_procedure_call;
+            proc->procedure_call.procedure = expression;
+            
+            ASTNode **argument_store_target = &proc->procedure_call.first_argument;
+            
+            for(;;)
+            {
+                if(TokenMatch(PeekToken(tokenizer)), ")")
+                {
+                    NextToken(tokenizer);
+                    break;
+                }
+                else
+                {
+                    *argument_store_target = ParseExpression(tokenizer);
+                    if(*argument_store_target)
+                    {
+                        argument_store_target = &(*argument_store_target)->next;
+                        if(!RequireToken(tokenizer, ",", 0) && !RequireToken(tokenizer, ")", 0))
+                        {
+                            // Unexpected token.
+                            goto end_parse;
+                        }
+                    }
+                    else
+                    {
+                        // Something went wrong.
+                        goto end_parse;
+                    }
+                }
+            }
+            
+            expression = proc;
+        }
+        
+        // Unexpected token, error.
+        else
+        {
+            // Push error message. Unexpected token.
+            goto end_parse;
+        }
+    }
+    
+    token = PeekToken(tokenizer);
+    if(TokenMatch(token, ")"))
+    {
+        NextToken(tokenizer);
+    }
+    
+    end_parse:;
+    
+    return expression;
+}
+}
+
+The code is very explicit, and getting to each case requires a relatively large amount of code, but I've found that this is ultimately a better structure for a parser for the following reasons: It is more robust, and the structure maintains the ability to be more robust, to erroneous input, it has the ability to report reasonable error messages that are tied to a very specific location in the input source code (and therefore tied to a very specific piece of malformed input), and it is vastly more debuggable than alternatives. For these reasons, the amount of code seemed like a massively worthwhile tradeoff to me. From what I've found, it is relatively easy and requires very little code to create a parser that accepts *valid* input. The harder part of the problem is to have a robust parser that helps its user (and helps the programmer writing the code by providing the ability to debug it).
+
+This implementation has a problem though; specifically in the parsing of binary operators: It does not account for operator precedence. My approach to this was to first understand whether the right-hand-side of the parsed binary operator was guarded by parentheses. If not, then operator precedence must be respected. I found that the most straightforward path to maintaining operator precedence here was to first parse the binary operator node, *then* to fix up the tree if necessary. This might seem a bit difficult at first, but as I've found in the past, drawing out tree-manipulation problems makes them much easier to solve.
+
+First, suppose that we start with the following input:
+
+@Code
+{
+5 * 3 + 4
+}
+
+With the above implementation of the code, the following abstract syntax tree will be generated:
+
+@Image {data/malformed_ast.png}
+
+This is a malformed abstract syntax tree with operator-precedence taken into account. The proper abstract syntax tree looks like this:
+
+@Image {data/proper_ast.png}
+
+After taking a look at this problem, I developed a very simple algorithm for fixing up the generated tree in the event that it is malformed, which is comprised of the following steps: Firstly, swap the two binary operator types. Secondly, rotate all binary operator operands in counter-clockwise fashion. Thirdly, swap the original binary operator's left and right children.
+
+@Image {data/ast_fixup.png}
+
+This nuance of the original implementation produces the following code:
+
+@Code
+{
+NextToken(tokenizer);
+ASTNode *op = AllocateNode(...);
+op->type = AST_NODE_TYPE_binary_operator;
+op->binary_operator.type = binary_op_type;
+op->binary_operator.left = expression;
+
+int right_hand_side_is_guarded_by_parentheses = TokenMatch(PeekToken(tokenizer), "(");
+
+op->binary_operator.right = ParseExpression(tokenizer);
+
+// If the right-hand-side expression is not guarded by parentheses, and if the
+// right-hand-side is another binary operator, and if the right-hand-side child
+// has lower precedence than the parent binary operator, we must perform the
+// binary operator fix-up algorithm.
+
+if(!right_hand_side_is_guarded_by_parentheses &&
+   op->binary_operator.right &&
+   op->binary_operator.right->type == AST_NODE_TYPE_binary_operator &&
+   op->binary_operator.type > op->binary_operator.right->binary_operator.type)
+{
+    // Step 1: Swap the binary operator types.
+    {
+        BinaryOperatorType swap = op->binary_operator.type;
+        op->binary_operator.type = op->binary_operator.right->binary_operator.type;
+        op->binary_operator.right->binary_operator.type = swap;
+    }
+    
+    // Step 2: Rotate children counter-clockwise.
+    {
+        ASTNode *parent_left = op->binary_operator.left;
+        ASTNode *child_left  = op->binary_operator.right->binary_operator.left;
+        ASTNode *child_right = op->binary_operator.right->binary_operator.right;
+        op->binary_operator.left = child_right;
+        op->binary_operator.right->binary_operator.left = parent_left;
+        op->binary_operator.right->binary_operator.right = child_left;
+        
+    }
+    
+    // Step 3: Swap parent left/right operands.
+    {
+        ASTNode *swap = op->binary_operator.left;
+        op->binary_operator.left = op->binary_operator.right;
+        op->binary_operator.right = swap;
+    }
+}
+
+expression = op;
+}
+
+This algorithm works recursively as well, as any improperly parsed sub-tree binary operators will be fixed up before their parent binary operators will be fixed up.
+
+This `ParseExpression` function can then be leveraged in the top-level parsing code, where a list of nodes is generated. At this top-level, a simple loop looks for non-expression statements, like declarations, loops, or branches, and falls back on expression parsing (which handles cases like procedure calls). The top-level code then becomes dramatically simplified:
+
+@Code
+{
+ASTNode *ParseCode(Tokenizer *tokenizer)
+{
+    ASTNode *root = 0;
+    ASTNode *node_store_target = &root;
+    
+    RequireToken(tokenizer, "{", 0);
+    
+    for(;;)
+    {
+        if(PeekToken(tokenizer).type == TOKEN_TYPE_null ||
+           TokenMatch(PeekToken(tokenizer), "}"))
+        {
+            break;
+        }
+        else if(RequireToken(tokenizer, "if", 0))
+        {
+            ASTNode *conditional = AllocateNode(...);
+            conditional->conditional.condition = ParseExpression(tokenizer);
+            conditional->conditional.pass_code = ParseCode(tokenizer);
+            if(RequireToken(tokenizer, "else", 0))
+            {
+                conditional->conditional.fail_code = ParseCode(tokenizer);
+            }
+            *node_store_target = conditional;
+            node_store_target = &(*node_store_target)->next;
+        }
+        else if(RequireToken(tokenizer, "while", 0))
+        {
+            // ...
+        }
+        else if(RequireToken(tokenizer, "{", 0))
+        {
+            // Sub-code block
+        }
+        else
+        {
+            // Check for declaration syntax, otherwise assume expression.
+        }
+    }
+    
+    RequireToken(tokenizer, "}", 0);
+    
+    return root;
+}
+}
+
+That covers the most interesting of the parsing problems; everywhere else, it is as simple as calling the tokenizer parsing functions to collect the expected classes of input.
+
+Once the parser was implemented, I had a proper abstract syntax tree being generated from input source code. This is all well and good, but there was more work to do: Actually evaluating those abstract syntax trees. For the case of The Melodist, I decided that the best way to do this would be to compile the script to a custom bytecode instruction format that the game could execute at runtime. This saves any compilation work from happening at run-time, and allows for script compilation to happen offline (though it's worth mentioning that the game can compile scripts at run-time in developer builds). Actually compiling these abstract syntax trees can be done through a relatively straightforward process of traversing the generated abstract syntax tree and generating a big instruction buffer, then writing a simple virtual machine that can iterate through and perform these instructions. This part of The Melodist's scripting engine will be covered in Part 2.
+
+Stay tuned!
