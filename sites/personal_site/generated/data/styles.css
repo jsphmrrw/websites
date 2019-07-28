@@ -136,14 +136,14 @@ hr
 	border-radius: 2px;
 	width: 86%;
 	display: inline-block;
-	transition: all 0.2s ease;
+	transition: background 0.2s ease;
 }
 
 .lister_link:hover
 {
 	background: var(--highlight-color);
 	color: #ffffff;
-	transition: all 0.2s ease;
+	transition: background 0.2s ease;
 }
 
 .page_content
@@ -359,14 +359,13 @@ hr
 	background-position-x: center;
     background-position-y: center;
     height: 20em;
-	transition: all 1.0s ease;
+	transition: all 1.0s ease, background-position 0ms;
 }
 
 .feature_button .feature_button_image
 {
 	
 	background-size: auto 200%;
-	transition: all 1.0s ease;
     opacity: 0.8;
 	filter: blur(2px);
    -webkit-filter: blur(2px);
@@ -376,7 +375,6 @@ hr
 {
 	
 	background-size: auto 220%;
-	transition: all 1.0s ease;
     opacity: 1.0;
 	filter: blur(0px);
    -webkit-filter: blur(0px);
