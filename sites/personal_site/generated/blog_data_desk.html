@@ -32,12 +32,18 @@
 </div><div class="page_content">
 <div class="standalone_link_container"><a class="link" href="blog.html">← Back to Blog</a></div><h1>Compile-Time Type Introspection with Data Desk</h1>
 <h2>9 June 2019</h2>
-<p>There I am, writing a hypothetical game. In this hypothetical game, let's suppose that I have some collection of data that is used to store information about players. Let's say that, for every player, I have the following data:</p><div class="code"><pre>
+<p>
+
+There I am, writing a hypothetical game. In this hypothetical game, let's suppose that I have some collection of data that is used to store information about players. Let's say that, for every player, I have the following data:</p><div class="code"><pre>
 Vec3 position;
 Vec3 velocity;
 <span class="code_text" style="color: #f4b642;">float</span> radius;
 <span class="code_text" style="color: #f4b642;">float</span> health;
-</pre></div><p>Great! Now that I have data for my players, I might find multiple scenarios in the codebase where the same operation needs to occur. For example, maybe when the player gets attacked, I'd like them to fly backward and reduce their health. This would need to happen <i>both</i> when a player is hit by a projectile, but also when a player is hit by another player's melee attack.</p><p>Because this functionality is truly common (and not only superficially similar), I might introduce a function that performs this operation for me, so that every time I need a player to be hit, I can just call into the code that produces the desired effect. This allows me to fling the player backwards and take damage in multiple code locations without duplicating the functionality (and thus making it more difficult to modify):</p><div class="code"><pre>
+</pre></div><p>
+
+Great! Now that I have data for my players, I might find multiple scenarios in the codebase where the same operation needs to occur. For example, maybe when the player gets attacked, I'd like them to fly backward and reduce their health. This would need to happen <i>both</i> when a player is hit by a projectile, but also when a player is hit by another player's melee attack.
+
+Because this functionality is truly common (and not only superficially similar), I might introduce a function that performs this operation for me, so that every time I need a player to be hit, I can just call into the code that produces the desired effect. This allows me to fling the player backwards and take damage in multiple code locations without duplicating the functionality (and thus making it more difficult to modify):</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> HitPlayer(Vec3 *player_position, Vec3 *player_velocity, Vec3 *player_radius,
                Vec3 *player_health, Vec3 attack_position, <span class="code_text" style="color: #f4b642;">float</span> attack_radius)
 {
@@ -48,19 +54,31 @@ Vec3 velocity;
         *player_health -= <span class="code_text" style="color: #82c4e5;">0.1f</span>;
     }
 }
-</pre></div><p>Wonderful! Now, any time a player needs to be flung back and to take damage, all I need to do is this:</p><div class="code"><pre>
+</pre></div><p>
+
+Wonderful! Now, any time a player needs to be flung back and to take damage, all I need to do is this:</p><div class="code"><pre>
 HitPlayer(&amp;player_position, &amp;player_velocity, &amp;player_radius, &amp;player_health, attack_position, attack_radius);
-</pre></div><p>I might find other such scenarios as well, where I have a function meant to operate on all of the player's data, and one that needs to occur in multiple places in the code. Here are a few examples of some possible functions that meet that description:</p><div class="code"><pre>
+</pre></div><p>
+
+I might find other such scenarios as well, where I have a function meant to operate on all of the player's data, and one that needs to occur in multiple places in the code. Here are a few examples of some possible functions that meet that description:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> SavePlayerToDisk(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health);
 <span class="code_text" style="color: #f4b642;">void</span> LoadPlayerFromDisk(Vec3 *player_position, Vec3 *player_velocity, <span class="code_text" style="color: #f4b642;">float</span> *player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health);
 <span class="code_text" style="color: #f4b642;">void</span> PrintPlayer(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health);
 <span class="code_text" style="color: #f4b642;">void</span> RenderPlayer(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health);
-</pre></div><p>This is shaping up really nicely. After having a nice discussion with my team, we've decided that the player also needs an armor value. This armor value would almost serve as a second health meter, and would deplete before the player's health does. Maybe the player could run around and pick up power-ups that refill their armor meter. <i>Why is this separate from the health meter, you ask? Well, the answer is that otherwise, this wouldn't make for a good example for this blog post.</i></p><p>So, now I know that I have something new to introduce to the collection of player data. All I have to do is enumerate every location that needs to operate on all of the player's data and add a function parameter. Simple!</p><div class="code"><pre>
+</pre></div><p>
+
+This is shaping up really nicely. After having a nice discussion with my team, we've decided that the player also needs an armor value. This armor value would almost serve as a second health meter, and would deplete before the player's health does. Maybe the player could run around and pick up power-ups that refill their armor meter. <i>Why is this separate from the health meter, you ask? Well, the answer is that otherwise, this wouldn't make for a good example for this blog post.</i>
+
+So, now I know that I have something new to introduce to the collection of player data. All I have to do is enumerate every location that needs to operate on all of the player's data and add a function parameter. Simple!</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> SavePlayerToDisk(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health, <span class="code_text" style="color: #f4b642;">float</span> player_armor);
 <span class="code_text" style="color: #f4b642;">void</span> LoadPlayerFromDisk(Vec3 *player_position, Vec3 *player_velocity, <span class="code_text" style="color: #f4b642;">float</span> *player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health, <span class="code_text" style="color: #f4b642;">float</span> player_armor);
 <span class="code_text" style="color: #f4b642;">void</span> PrintPlayer(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health, <span class="code_text" style="color: #f4b642;">float</span> player_armor);
 <span class="code_text" style="color: #f4b642;">void</span> RenderPlayer(Vec3 player_position, Vec3 player_velocity, <span class="code_text" style="color: #f4b642;">float</span> player_radius, <span class="code_text" style="color: #f4b642;">float</span> player_health, <span class="code_text" style="color: #f4b642;">float</span> player_armor);
-</pre></div><p>Now, before I get a bunch of angry emails about programming techniques, the problem should be obvious here: I'm redundantly specifying information (the data that makes up a "player", as defined by the game). An often overlooked, perhaps more important, factor is the fact that I'm specifying redundant information <i>that often needs to change</i>. Every time I want to add some new data to what constitutes a "player", I need to modify a larger and larger number of locations within the code. In other words, I am <i>implicitly</i> defining what data comprises a "player" in multiple places.</p><p>This is a problem that was identified by language designers very early in software's history, and this is precisely the reason why the abstraction of the struct was introduced. With a struct, I can group this data together, and now the program can be written around semantics about players (instead of individual members of data):</p><div class="code"><pre>
+</pre></div><p>
+
+Now, before I get a bunch of angry emails about programming techniques, the problem should be obvious here: I'm redundantly specifying information (the data that makes up a "player", as defined by the game). An often overlooked, perhaps more important, factor is the fact that I'm specifying redundant information <i>that often needs to change</i>. Every time I want to add some new data to what constitutes a "player", I need to modify a larger and larger number of locations within the code. In other words, I am <i>implicitly</i> defining what data comprises a "player" in multiple places.
+
+This is a problem that was identified by language designers very early in software's history, and this is precisely the reason why the abstraction of the struct was introduced. With a struct, I can group this data together, and now the program can be written around semantics about players (instead of individual members of data):</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">struct</span> Player
 {
     Vec3 position;
@@ -69,20 +87,34 @@ HitPlayer(&amp;player_position, &amp;player_velocity, &amp;player_radius, &amp;p
     <span class="code_text" style="color: #f4b642;">float</span> health;
     <span class="code_text" style="color: #f4b642;">float</span> armor;
 };
-</pre></div><p>After this struct is introduced, all of the functions that do the work I need turn into something much simpler and easier to maintain:</p><div class="code"><pre>
+</pre></div><p>
+
+After this struct is introduced, all of the functions that do the work I need turn into something much simpler and easier to maintain:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> SavePlayerToDisk   (<span class="code_text" style="color: #f4b642;">struct</span> Player *player);
 <span class="code_text" style="color: #f4b642;">void</span> LoadPlayerFromDisk (<span class="code_text" style="color: #f4b642;">struct</span> Player *player);
 <span class="code_text" style="color: #f4b642;">void</span> PrintPlayer        (<span class="code_text" style="color: #f4b642;">struct</span> Player *player);
 <span class="code_text" style="color: #f4b642;">void</span> RenderPlayer       (<span class="code_text" style="color: #f4b642;">struct</span> Player *player);
-</pre></div><p>Now, in the event that I need to modify what data a "player" is made out of, I can just modify the struct. Additionally, as a smaller (but still significant) benefit, when I write code about "players", I can use those semantics around "players", which might save me some brainpower and some typing.</p><p>So, what was good about the introduction of this abstraction? Well, before it was introduced, I was defining the same list of things over and over again: I need the player's health, and the player's position, and the player's velocity, and the player's armor. Imagine scaling this to a collection of hundreds of pieces of data, or to hundreds of functions, or to hundreds of functions operating on hundreds of pieces of data. That would get... <i>really bad</i>. It would become very difficult, or perhaps impossible, to modify the code in a reasonable amount of time. Even worse, <i>even in relatively smaller-scale software</i>, it isn't really that uncommon for a list of related data to be hundreds of lines long, or to have hundreds of functions that need to operate on the same bundle of data.</p><p>In short, the benefit of the introduction of that abstraction was turning this:</p><div class="code"><pre>
+</pre></div><p>
+
+Now, in the event that I need to modify what data a "player" is made out of, I can just modify the struct. Additionally, as a smaller (but still significant) benefit, when I write code about "players", I can use those semantics around "players", which might save me some brainpower and some typing.
+
+So, what was good about the introduction of this abstraction? Well, before it was introduced, I was defining the same list of things over and over again: I need the player's health, and the player's position, and the player's velocity, and the player's armor. Imagine scaling this to a collection of hundreds of pieces of data, or to hundreds of functions, or to hundreds of functions operating on hundreds of pieces of data. That would get... <i>really bad</i>. It would become very difficult, or perhaps impossible, to modify the code in a reasonable amount of time. Even worse, <i>even in relatively smaller-scale software</i>, it isn't really that uncommon for a list of related data to be hundreds of lines long, or to have hundreds of functions that need to operate on the same bundle of data.
+
+In short, the benefit of the introduction of that abstraction was turning this:</p><div class="code"><pre>
 Vec3 player_position;
 Vec3 player_velocity;
 <span class="code_text" style="color: #f4b642;">float</span> player_radius;
 <span class="code_text" style="color: #f4b642;">float</span> player_health;
 <span class="code_text" style="color: #f4b642;">float</span> player_armor;
-</pre></div><p>Into this:</p><div class="code"><pre>
+</pre></div><p>
+
+Into this:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">struct</span> Player player;
-</pre></div><p>C's structs are a useful tool for problems like this. It can become very easy to solve the problem of implicitly "defining" multiple structs. However, this concept, as a problem, is not fully solved in C, or in C++, or in a multitude of other languages.</p><p>To illustrate this, I can take a function I already used as an example:</p><div class="code"><pre>
+</pre></div><p>
+
+C's structs are a useful tool for problems like this. It can become very easy to solve the problem of implicitly "defining" multiple structs. However, this concept, as a problem, is not fully solved in C, or in C++, or in a multitude of other languages.
+
+To illustrate this, I can take a function I already used as an example:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> PrintPlayer(<span class="code_text" style="color: #f4b642;">struct</span> Player *player)
 {
     printf(<span class="code_text" style="color: #82c4e5;">"Position:  %f %f %f\n"</span>, player-&gt;position.x, player-&gt;position.y, player-&gt;position.z);
@@ -91,10 +123,16 @@ Vec3 player_velocity;
     printf(<span class="code_text" style="color: #82c4e5;">"Health:    %f\n"</span>, player-&gt;health);
     printf(<span class="code_text" style="color: #82c4e5;">"Armor:     %f\n"</span>, player-&gt;armor);
 }
-</pre></div><p>Here's a function that takes one of the aforementioned <span class="monospace">Player</span> structs and prints it out. This might be useful for debugging reasons. The function just takes a <span class="monospace">Player</span> instance, and spits out the player's data to the standard output stream so that it can be read by a human.</p><p>A detail that is often overlooked in cases like this, though, is that the player's data has, yet again, been <i>implicitly</i> defined. It has been implicitly defined in the same way that it was previously, except now, it is being implicitly defined not by <i>data definitions</i>, but by <i>data operations</i>.</p><p>This pattern occurs everywhere. Imagine that, in a map editor for this game, I'd like to have a UI that modifies the player's data, so that there can be easy-to-use controls in the editor that a designer can use to specify details about the way in which players spawn. That might require a function like this:</p><div class="code"><pre>
-<span class="code_text" style="color: #8cba53;">// Let's be generous and assume that the codebase is using immediate-mode UI,</span>
-<span class="code_text" style="color: #8cba53;">// so that there aren't three separate functions to maintain for the player's</span>
-<span class="code_text" style="color: #8cba53;">// UI code.</span>
+</pre></div><p>
+
+Here's a function that takes one of the aforementioned <span class="monospace">Player</span> structs and prints it out. This might be useful for debugging reasons. The function just takes a <span class="monospace">Player</span> instance, and spits out the player's data to the standard output stream so that it can be read by a human.
+
+A detail that is often overlooked in cases like this, though, is that the player's data has, yet again, been <i>implicitly</i> defined. It has been implicitly defined in the same way that it was previously, except now, it is being implicitly defined not by <i>data definitions</i>, but by <i>data operations</i>.
+
+This pattern occurs everywhere. Imagine that, in a map editor for this game, I'd like to have a UI that modifies the player's data, so that there can be easy-to-use controls in the editor that a designer can use to specify details about the way in which players spawn. That might require a function like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// Let's be generous and assume that the codebase is using immediate-mode UI,</span>
+<span class="code_text" style="color: #8cba53;">// so that there aren't three separate functions to maintain for the player's</span>
+<span class="code_text" style="color: #8cba53;">// UI code.</span>
 <span class="code_text" style="color: #f4b642;">void</span> DoUIForPlayer(<span class="code_text" style="color: #f4b642;">struct</span> Player *player)
 {
     UILabel(<span class="code_text" style="color: #82c4e5;">"%f %f %f"</span>, player-&gt;position.x, player-&gt;position.y, player-&gt;position.z);
@@ -103,7 +141,15 @@ Vec3 player_velocity;
     player-&gt;health = UISlider(<span class="code_text" style="color: #82c4e5;">"Health"</span>, <span class="code_text" style="color: #82c4e5;">0.f</span>, <span class="code_text" style="color: #82c4e5;">1.f</span>);
     player-&gt;armor  = UISlider(<span class="code_text" style="color: #82c4e5;">"Armor"</span>, <span class="code_text" style="color: #82c4e5;">0.f</span>, <span class="code_text" style="color: #82c4e5;">1.f</span>);
 }
-</pre></div><p>The <i>same problem exists</i>, as it exists in many other places: Data serialization code, data <i>un</i>serialization code, data comparison code, and the list goes on... And yet the lack of proper abstractions to deal with this kind of a problem (a problem that is incredibly common) remains.</p><p>Some programming languages and utilities introduce the concept of run-time type information to solve this problem, so that functions can, for example, loop through the members of a structure and perform an operation for each one (like a printing function). The obvious problem here is that this work <i>doesn't need to happen at runtime</i>, and if it does, it is doing a disservice ultimately to the end-users of the product. This is a problem with a solution that is completely knowable at compile-time. C and C++ compilers actually <i>have</i> the information required to solve this problem, but they don't allow you to actually use it.</p><p>This is why I wrote <i>Data Desk</i>; it is a utility program that parses its own data description file format, and lets project-specific code plug into it to use these parsed files to introspect on the data descriptions and generate code based on them.</p><p>Take the <span class="monospace">Player</span> struct as an example. In Data Desk, you can declare a structure in (almost) the same way that you would declare it in C:</p><div class="code"><pre>
+</pre></div><p>
+
+The <i>same problem exists</i>, as it exists in many other places: Data serialization code, data <i>un</i>serialization code, data comparison code, and the list goes on... And yet the lack of proper abstractions to deal with this kind of a problem (a problem that is incredibly common) remains.
+
+Some programming languages and utilities introduce the concept of run-time type information to solve this problem, so that functions can, for example, loop through the members of a structure and perform an operation for each one (like a printing function). The obvious problem here is that this work <i>doesn't need to happen at runtime</i>, and if it does, it is doing a disservice ultimately to the end-users of the product. This is a problem with a solution that is completely knowable at compile-time. C and C++ compilers actually <i>have</i> the information required to solve this problem, but they don't allow you to actually use it.
+
+This is why I wrote <i>Data Desk</i>; it is a utility program that parses its own data description file format, and lets project-specific code plug into it to use these parsed files to introspect on the data descriptions and generate code based on them.
+
+Take the <span class="monospace">Player</span> struct as an example. In Data Desk, you can declare a structure in (almost) the same way that you would declare it in C:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">struct</span> Player
 {
     position : Vec3;
@@ -112,10 +158,16 @@ Vec3 player_velocity;
     health   : <span class="code_text" style="color: #f4b642;">float</span>;
     armor    : <span class="code_text" style="color: #f4b642;">float</span>;
 }
-</pre></div><p>You'll notice that the syntax is slightly different, but the semantics of what is happening are identical. When I run Data Desk and pass it this file, it will parse this file, and generate a corresponding abstract syntax tree:</p><div class="image_container"><img class="image" src="data/data_desk_ast_example.png"></div>
-<p>The information that encodes this abstract syntax tree will be passed to any custom, project-specific code in the form of <span class="monospace">DataDeskASTNode</span> structures.</p><p>Suppose, now, that I'd like a printing function in my program for Player (and other structs). To do that, I might mark structures in the Data Desk file as "printable", by adding a <span class="monospace">Printable</span> tag to it, like so:</p><div class="code"><pre>
-<span class="code_text" style="color: #d82312;">@Printable
-</span><span class="code_text" style="color: #f4b642;">struct</span> Player
+</pre></div><p>
+
+You'll notice that the syntax is slightly different, but the semantics of what is happening are identical. When I run Data Desk and pass it this file, it will parse this file, and generate a corresponding abstract syntax tree:</p><div class="image_container"><img class="image" src="data/data_desk_ast_example.png"></div>
+<p>
+
+The information that encodes this abstract syntax tree will be passed to any custom, project-specific code in the form of <span class="monospace">DataDeskASTNode</span> structures.
+
+Suppose, now, that I'd like a printing function in my program for Player (and other structs). To do that, I might mark structures in the Data Desk file as "printable", by adding a <span class="monospace">Printable</span> tag to it, like so:</p><div class="code"><pre>
+<span class="code_text" style="color: #d82312;">@Printable</span>
+<span class="code_text" style="color: #f4b642;">struct</span> Player
 {
     position : Vec3;
     velocity : Vec3;
@@ -123,29 +175,33 @@ Vec3 player_velocity;
     health   : <span class="code_text" style="color: #f4b642;">float</span>;
     armor    : <span class="code_text" style="color: #f4b642;">float</span>;
 }
-</pre></div><p>My custom, project-specific code can check for tags like this. It can do a quick check to see if a parsed struct is "printable", and if so, it can loop through the members of the parsed structure and generate proper C (or any other language) code for it. The custom code might look something like this:</p><div class="code"><pre>
+</pre></div><p>
+
+My custom, project-specific code can check for tags like this. It can do a quick check to see if a parsed struct is "printable", and if so, it can loop through the members of the parsed structure and generate proper C (or any other language) code for it. The custom code might look something like this:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">for</span>(DataDeskASTNode *struct_member = first_struct_member;
     struct_member;
     struct_member = struct_member-&gt;next)
 {
     <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"float"</span>))
     {
-        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a float.</span>
+        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a float.</span>
     }
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"Vec3"</span>))
     {
-        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a Vec3.</span>
+        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a Vec3.</span>
     }
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"int"</span>))
     {
-        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a int.</span>
+        <span class="code_text" style="color: #8cba53;">// Generate a printf call for a int.</span>
     }
     <span class="code_text" style="color: #f4b642;">else</span>
     {
-        <span class="code_text" style="color: #8cba53;">// Unhandled type.</span>
+        <span class="code_text" style="color: #8cba53;">// Unhandled type.</span>
     }
 }
-</pre></div><p>This is the simplest case, but this kind of code structure already handles a lot. However, because Data Desk doesn't assume your intentions, it will just pass the custom code its parsed abstract syntax trees, so the custom code can employ more complex techniques to squeeze out even more if it needs to. It is perfectly doable for the custom code to recursively descend into the abstract syntax tree structure declarations so that a printing function could print all members of all sub-structs within a struct, which might look something like this:</p><div class="code"><pre>
+</pre></div><p>
+
+This is the simplest case, but this kind of code structure already handles a lot. However, because Data Desk doesn't assume your intentions, it will just pass the custom code its parsed abstract syntax trees, so the custom code can employ more complex techniques to squeeze out even more if it needs to. It is perfectly doable for the custom code to recursively descend into the abstract syntax tree structure declarations so that a printing function could print all members of all sub-structs within a struct, which might look something like this:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">void</span> GeneratePrintCode(DataDeskASTNode *first_struct_member)
 {
     <span class="code_text" style="color: #f4b642;">for</span>(DataDeskASTNode *struct_member = first_struct_member;
@@ -154,32 +210,34 @@ Vec3 player_velocity;
     {
         <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsStruct(struct_member))
         {
-            <span class="code_text" style="color: #8cba53;">// This is a little unwieldy because it needs to access the first structure member</span>
-            <span class="code_text" style="color: #8cba53;">// of the declaration node's type usage node. This could probably be cleaned up, but</span>
-            <span class="code_text" style="color: #8cba53;">// it works nevertheless. This is a bit clearer if the DataDeskASTNode struct is examined.</span>
+            <span class="code_text" style="color: #8cba53;">// This is a little unwieldy because it needs to access the first structure member</span>
+            <span class="code_text" style="color: #8cba53;">// of the declaration node's type usage node. This could probably be cleaned up, but</span>
+            <span class="code_text" style="color: #8cba53;">// it works nevertheless. This is a bit clearer if the DataDeskASTNode struct is examined.</span>
             GeneratePrintCode(struct_member-&gt;declaration.type-&gt;struct_declaration-&gt;struct_declaration.first_member);
         }
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"float"</span>))
         {
-            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a float.</span>
+            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a float.</span>
         }
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"Vec3"</span>))
         {
-            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a Vec3.</span>
+            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a Vec3.</span>
         }
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskDeclarationIsType(struct_member, <span class="code_text" style="color: #82c4e5;">"int"</span>))
         {
-            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a int.</span>
+            <span class="code_text" style="color: #8cba53;">// Generate a printf call for a int.</span>
         }
         <span class="code_text" style="color: #f4b642;">else</span>
         {
-            <span class="code_text" style="color: #8cba53;">// Unhandled type.</span>
+            <span class="code_text" style="color: #8cba53;">// Unhandled type.</span>
         }
     }
 }
-</pre></div><p>One immediately clear objection that one might have is that not every function like this is quite an implicit redefinition of the structure that it works on. For example, a printing function might require certain members to not be printed, or a UI function might require certain struct fields to not have UI code generated for them. Tags can also be added to declarations in structs, so that more meta-information can be specified about them. In the printing function case, I can introduce a <span class="monospace">NoPrint</span> tag to certain struct members that signals to the custom code that I'd like for it to <i>not</i> generate any printing code for the fields that are marked with it:</p><div class="code"><pre>
-<span class="code_text" style="color: #d82312;">@Printable
-</span><span class="code_text" style="color: #f4b642;">struct</span> Player
+</pre></div><p>
+
+One immediately clear objection that one might have is that not every function like this is quite an implicit redefinition of the structure that it works on. For example, a printing function might require certain members to not be printed, or a UI function might require certain struct fields to not have UI code generated for them. Tags can also be added to declarations in structs, so that more meta-information can be specified about them. In the printing function case, I can introduce a <span class="monospace">NoPrint</span> tag to certain struct members that signals to the custom code that I'd like for it to <i>not</i> generate any printing code for the fields that are marked with it:</p><div class="code"><pre>
+<span class="code_text" style="color: #d82312;">@Printable</span>
+<span class="code_text" style="color: #f4b642;">struct</span> Player
 {
     position : Vec3;
     velocity : Vec3;
@@ -187,7 +245,13 @@ Vec3 player_velocity;
     <span class="code_text" style="color: #d82312;">@NoPrint </span>health   : <span class="code_text" style="color: #f4b642;">float</span>;
     <span class="code_text" style="color: #d82312;">@NoPrint </span>armor    : <span class="code_text" style="color: #f4b642;">float</span>;
 }
-</pre></div><p>The returns of this tool have already been massive in my own projects. I've used Data Desk's introspection capabilities so far to generate printing functions, UI functions, data serialization functions, and more. I've also leveraged it to do other kinds of compile-time work which greatly reduces the workload of programs at runtime (which is ultimately better for the user), including shader compilation, generation of vertex information for maps in <a class="link" href="dungeoneer.html">Dungeoneer</a>, and automatic generation of flag constants.</p><p>This really only scrapes the surface of what compile-time execution, introspection, and code-generation are capable of, but it's a much-needed piece of them in a programmer's everyday life. I think this area is hugely underexplored, and I think that the returns in this area are largely untapped. Data Desk doesn't solve this problem, but I think it provides some immediate returns while giving a glimpse of the kind of possible benefits that are achievable. Some other interesting exploration happening in this area is the arbitrary compile-time execution featured in the Jai language, <a class="link" href="http://the-witness.net/news/">which is being developed by Thekla, Inc</a>.</p><p>If you'd like to see, learn more about, or use Data Desk, its code is <a class="link" href="https://github.com/ryanfleury/data_desk">publicly available for free</a>. Due to the experimental nature of this tool and the extreme lack of exploration in this area, there are probably several improvements that would help make it better. If you have any thoughts, feel free to <a class="link" href="contact.html">contact me with them</a>.</p></div>
+</pre></div><p>
+
+The returns of this tool have already been massive in my own projects. I've used Data Desk's introspection capabilities so far to generate printing functions, UI functions, data serialization functions, and more. I've also leveraged it to do other kinds of compile-time work which greatly reduces the workload of programs at runtime (which is ultimately better for the user), including shader compilation, generation of vertex information for maps in <a class="link" href="dungeoneer.html">Dungeoneer</a>, and automatic generation of flag constants.
+
+This really only scrapes the surface of what compile-time execution, introspection, and code-generation are capable of, but it's a much-needed piece of them in a programmer's everyday life. I think this area is hugely underexplored, and I think that the returns in this area are largely untapped. Data Desk doesn't solve this problem, but I think it provides some immediate returns while giving a glimpse of the kind of possible benefits that are achievable. Some other interesting exploration happening in this area is the arbitrary compile-time execution featured in the Jai language, <a class="link" href="http://the-witness.net/news/">which is being developed by Thekla, Inc</a>.
+
+If you'd like to see, learn more about, or use Data Desk, its code is <a class="link" href="https://github.com/ryanfleury/data_desk">publicly available for free</a>. Due to the experimental nature of this tool and the extreme lack of exploration in this area, there are probably several improvements that would help make it better. If you have any thoughts, feel free to <a class="link" href="contact.html">contact me with them</a>.</p></div>
 <div class="separator reverse"></div>
 <div class="footer">
     <a class="link" href="https://github.com/ryanfleury">GitHub</a>
