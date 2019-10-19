@@ -14,9 +14,9 @@ The code is available @Link {"on GitHub", "https://github.com/ryanfleury/dungeon
 
 @SubTitle {Screenshots}
 
-@ThumbnailImage { data/dungeoneer_screenshot_1.png }
-@ThumbnailImage { data/dungeoneer_screenshot_2.png }
-@ThumbnailImage { data/dungeoneer_screenshot_3.png }
+@ThumbnailImage { "data/dungeoneer_screenshot_1.png" }
+@ThumbnailImage { "data/dungeoneer_screenshot_2.png" }
+@ThumbnailImage { "data/dungeoneer_screenshot_3.png" }
 
 @SubTitle {Collaboration Video}
-@YouTube {https://www.youtube.com/watch?v=u0GZKJGeQLY}
+@YouTube {"https://www.youtube.com/watch?v=u0GZKJGeQLY"}

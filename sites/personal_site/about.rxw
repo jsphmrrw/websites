@@ -1,4 +1,4 @@
-@Title { About }
+@Title {"About"}
 
 Hi, I'm Ryan. I've been working with software and developing games since I was about six years old, when I was introduced to QBasic and RPG Maker. I've been doing game development ever since. I've always found myself fighting against pre-built engines and higher-level languages in order to get very specific results, so I became more interested in lower-level programming and custom game engine development over time. Nowadays, I spend most of my free time writing custom games, and game engines, with (almost) no dependencies in C.
 
@@ -8,4 +8,4 @@ This website is my a collection of information about my projects and random blog
 
 *Also, here's a silly picture of me at an Easter family gathering until I get a more reasonable photo. On the two eggs I am holding up, I've drawn a simple geometric proof for the Pythagorean Theorem.*
 
-@Image { data/me.jpg }
+@Image {"data/me.jpg"}

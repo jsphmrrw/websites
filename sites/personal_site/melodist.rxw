@@ -14,9 +14,9 @@ The game's development has been documented with a @Link { "development log video
 
 @SubTitle {Screenshots}
 
-@ThumbnailImage { data/melodist_screenshot_1.png }
-@ThumbnailImage { data/melodist_screenshot_2.png }
-@ThumbnailImage { data/melodist_screenshot_3.png }
-@ThumbnailImage { data/melodist_screenshot_4.png }
-@ThumbnailImage { data/melodist_screenshot_5.png }
-@ThumbnailImage { data/melodist_screenshot_6.png }
+@ThumbnailImage { "data/melodist_screenshot_1.png" }
+@ThumbnailImage { "data/melodist_screenshot_2.png" }
+@ThumbnailImage { "data/melodist_screenshot_3.png" }
+@ThumbnailImage { "data/melodist_screenshot_4.png" }
+@ThumbnailImage { "data/melodist_screenshot_5.png" }
+@ThumbnailImage { "data/melodist_screenshot_6.png" }

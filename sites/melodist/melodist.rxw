@@ -1,10 +1,10 @@
-@Description {A game about a world that is intertwined with music.}
+@Description {"A game about a world that is intertwined with music."}
 
-@Title {Coming soon.}
+@Title {"Coming soon."}
 
-@ThumbnailImage { data/melodist_screenshot_1.png }
-@ThumbnailImage { data/melodist_screenshot_2.png }
-@ThumbnailImage { data/melodist_screenshot_3.png }
-@ThumbnailImage { data/melodist_screenshot_4.png }
-@ThumbnailImage { data/melodist_screenshot_5.png }
-@ThumbnailImage { data/melodist_screenshot_6.png }
+@ThumbnailImage { "data/melodist_screenshot_1.png" }
+@ThumbnailImage { "data/melodist_screenshot_2.png" }
+@ThumbnailImage { "data/melodist_screenshot_3.png" }
+@ThumbnailImage { "data/melodist_screenshot_4.png" }
+@ThumbnailImage { "data/melodist_screenshot_5.png" }
+@ThumbnailImage { "data/melodist_screenshot_6.png" }

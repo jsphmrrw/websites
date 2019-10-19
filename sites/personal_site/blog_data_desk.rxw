@@ -168,7 +168,7 @@ struct Player
 
 You'll notice that the syntax is slightly different, but the semantics of what is happening are identical. When I run Data Desk and pass it this file, it will parse this file, and generate a corresponding abstract syntax tree:
 
-@Image {data/data_desk_ast_example.png}
+@Image {"data/data_desk_ast_example.png"}
 
 The information that encodes this abstract syntax tree will be passed to any custom, project-specific code in the form of `DataDeskASTNode` structures.
 

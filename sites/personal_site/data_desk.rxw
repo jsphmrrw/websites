@@ -10,10 +10,10 @@ The source code for Data Desk, documentation, and examples can all be @Link {"fo
 
 @SubTitle {Screenshots}
 
-@ThumbnailImage { data/data_desk_screenshot_1.png }
-@ThumbnailImage { data/data_desk_screenshot_2.png }
-@ThumbnailImage { data/data_desk_screenshot_3.png }
+@ThumbnailImage { "data/data_desk_screenshot_1.png" }
+@ThumbnailImage { "data/data_desk_screenshot_2.png" }
+@ThumbnailImage { "data/data_desk_screenshot_3.png" }
 
 @SubTitle {Video Demonstration}
 
-@YouTube {https://www.youtube.com/watch?v=-ePt48anEO8}
+@YouTube {"https://www.youtube.com/watch?v=-ePt48anEO8"}

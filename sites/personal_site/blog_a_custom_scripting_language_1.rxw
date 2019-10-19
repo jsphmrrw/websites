@@ -1,6 +1,6 @@
 @Link {"← Back to Blog", "blog.html"}
 
-@Title {A Custom Scripting Language From Scratch (Part 1) }
+@Title {A Custom Scripting Language From Scratch (Part 1)}
 @Description {An overview of The Melodist's custom scripting engine, written from scratch in C.}
 @Date {2019/6/10}
 
@@ -59,7 +59,7 @@ else
 
 Iterating this string of text linearly to produce the desired result, while perhaps possible, will be incredibly difficult and, ultimately, results in the parsing code being extraordinarily brittle. Some assumptions about the nature of the input might not hold true for all acceptable language inputs, and the second those assumptions are no longer the case (for some given input), the parser will break. Instead, an abstract syntax tree can be generated:
 
-@Image {data/ast_example.png}
+@Image {"data/ast_example.png"}
 
 Then, to generate code, it's just a matter of traversing the abstract syntax tree with simple generation rules for each tree node.
 
@@ -497,15 +497,15 @@ First, suppose that we start with the following input:
 
 With the above implementation of the code, the following abstract syntax tree will be generated:
 
-@Image {data/malformed_ast.png}
+@Image {"data/malformed_ast.png"}
 
 This is a malformed abstract syntax tree with operator-precedence taken into account. The proper abstract syntax tree looks like this:
 
-@Image {data/proper_ast.png}
+@Image {"data/proper_ast.png"}
 
 After taking a look at this problem, I developed a very simple algorithm for fixing up the generated tree in the event that it is malformed, which is comprised of the following steps: Firstly, swap the two binary operator types. Secondly, rotate all binary operator operands in counter-clockwise fashion. Thirdly, swap the original binary operator's left and right children.
 
-@Image {data/ast_fixup.png}
+@Image {"data/ast_fixup.png"}
 
 This nuance of the original implementation produces the following code:
 

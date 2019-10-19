@@ -190,6 +190,7 @@ struct Tokenizer
     char *at;
     int line;
     char *file;
+    int break_text_by_commas;
 };
 
 #define PARSE_CONTEXT_MEMORY_BLOCK_SIZE_DEFAULT 4096
@@ -335,8 +336,9 @@ struct Token
 };
 
 static Token
-GetNextTokenFromBuffer(char *buffer)
+GetNextTokenFromBuffer(Tokenizer *tokenizer)
 {
+    char *buffer = tokenizer->at;
     Token token = {0};
     
     for(int i = 0; buffer[i]; ++i)
@@ -355,7 +357,7 @@ GetNextTokenFromBuffer(char *buffer)
             token.type = TOKEN_string_constant;
             token.string = buffer+i;
             token.string_length = 0;
-            int escaped = 0;
+            int escaped = 1;
             for(; (token.string[token.string_length] != '"' || escaped) && token.string[token.string_length];
                 ++token.string_length)
             {
@@ -371,6 +373,9 @@ GetNextTokenFromBuffer(char *buffer)
                     }
                 }
             }
+
+            ++token.string_length;
+
             break;
         }
         else if(!CharIsSpace(buffer[i]))
@@ -381,14 +386,15 @@ GetNextTokenFromBuffer(char *buffer)
             if(buffer[i] == '@')
             {
                 j = i+1;
-                for(j=i+1; buffer[j] && !CharIsSpace(buffer[j]); ++j);
+                for(j=i+1; buffer[j] && !CharIsSpace(buffer[j]) && CharIsAlpha(buffer[j]); ++j);
                 token.type = TOKEN_tag;
             }
             
             // NOTE(rjf): Symbol
             else if(CharIsSymbol(buffer[i]))
             {
-                static char *symbolic_blocks_to_break_out[] = {
+                static char *symbolic_blocks_to_break_out[] =
+                {
                     "*",
                     "_",
                     "`",
@@ -414,7 +420,7 @@ GetNextTokenFromBuffer(char *buffer)
             // NOTE(rjf): Text
             else
             {
-                for(j=i+1; buffer[j] && CharIsText(buffer[j]) && buffer[j] != '\n'; ++j);
+                for(j=i+1; buffer[j] && CharIsText(buffer[j]) && buffer[j] != '\n' && (!tokenizer->break_text_by_commas || buffer[j] != ','); ++j);
                 token.type = TOKEN_text;
                 
                 // NOTE(rjf): Add skipped whitespace to text node
@@ -444,14 +450,14 @@ GetNextTokenFromBuffer(char *buffer)
 static Token
 PeekToken(Tokenizer *tokenizer)
 {
-    Token token = GetNextTokenFromBuffer(tokenizer->at);
+    Token token = GetNextTokenFromBuffer(tokenizer);
     return token;
 }
 
 static Token
 NextToken(Tokenizer *tokenizer)
 {
-    Token token = GetNextTokenFromBuffer(tokenizer->at);
+    Token token = GetNextTokenFromBuffer(tokenizer);
     tokenizer->at = token.string + token.string_length;
     tokenizer->line += token.lines_traversed;
     return token;
@@ -461,7 +467,7 @@ static int
 RequireTokenType(Tokenizer *tokenizer, TokenType type, Token *token_ptr)
 {
     int match = 0;
-    Token token = GetNextTokenFromBuffer(tokenizer->at);
+    Token token = GetNextTokenFromBuffer(tokenizer);
     if(token.type == type)
     {
         match = 1;
@@ -487,7 +493,7 @@ static int
 RequireToken(Tokenizer *tokenizer, char *string, Token *token_ptr)
 {
     int match = 0;
-    Token token = GetNextTokenFromBuffer(tokenizer->at);
+    Token token = GetNextTokenFromBuffer(tokenizer);
     if(TokenMatch(token, string))
     {
         match = 1;
@@ -501,29 +507,53 @@ RequireToken(Tokenizer *tokenizer, char *string, Token *token_ptr)
     return match;
 }
 
-static PageNode *
-ParseTag(ParseContext *context, Tokenizer *tokenizer)
+static void
+SkipToAfterNextComma(Tokenizer *tokenizer)
 {
-    PageNode *result = 0;
-    
-    Token tag = {0};
-    if(RequireTokenType(tokenizer, TOKEN_tag, &tag))
+    for(int i = 0; tokenizer->at[i]; ++i)
     {
-        PageNode *first_argument = 0;
-        if(RequireToken(tokenizer, "{", 0))
+        if(tokenizer->at[i] == ',')
         {
-            PageNode **argument_list_target = &first_argument;
-            
-            
-            
-            if(!RequireToken(tokenizer, "}", 0))
-            {
-                PushParseError(context, tokenizer, "Missing '}'.");
-            }
+            tokenizer->at += i+1;
+            break;
         }
     }
-    
-    return result;
+}
+
+static void
+TrimQuotationMarks(char **text, int *text_length)
+{
+    if(*text[0] == '"')
+    {
+        *text = *text + 1;
+        *text_length -= 2;
+    }
+}
+
+static int
+ParseTextArgument(ParseContext *context, Tokenizer *tokenizer, char **text, int *text_length)
+{
+    int found_link = 0;
+    Token link_tag = {0};
+    if(RequireTokenType(tokenizer, TOKEN_string_constant, &link_tag) ||
+       RequireTokenType(tokenizer, TOKEN_text, &link_tag))
+    {
+        *text = link_tag.string;
+        *text_length = link_tag.string_length;
+        if(*text[0] == '"')
+        {
+            *text = *text + 1;
+            *text_length -= 2;
+        }
+        found_link = 1;
+    }
+    return found_link;
+}
+
+static int
+ParseLink(ParseContext *context, Tokenizer *tokenizer, char **link, int *link_length)
+{
+    return ParseTextArgument(context, tokenizer, link, link_length);
 }
 
 static PageNode *
@@ -548,161 +578,158 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             if(TokenMatch(tag, "@Title"))
             {
                 Token title_text = {0};
-                if(RequireToken(tokenizer, "{", 0) &&
-                   RequireTokenType(tokenizer, TOKEN_text, &title_text) &&
-                   RequireToken(tokenizer, "}", 0))
+
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    PageNode *node = ParseContextAllocateNode(context);
-                    node->type = PAGE_NODE_TYPE_title;
-                    node->string = title_text.string;
-                    node->string_length = title_text.string_length;
-                    node->text_style_flags = text_style_flags;
-                    *node_store_target = node;
-                    node_store_target = &(*node_store_target)->next;
+                    if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
+                       RequireTokenType(tokenizer, TOKEN_string_constant, &title_text))
+                    {
+                        PageNode *node = ParseContextAllocateNode(context);
+                        node->type = PAGE_NODE_TYPE_title;
+                        node->string = title_text.string;
+                        node->string_length = title_text.string_length;
+                        TrimQuotationMarks(&node->string, &node->string_length);
+                        node->text_style_flags = text_style_flags;
+                        *node_store_target = node;
+                        node_store_target = &(*node_store_target)->next;
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "A title tag expects {<title text>} to follow.");
+                    }
+
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Missing '}'.");
+                    } 
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A title tag expects {<title text>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
             else if(TokenMatch(tag, "@SubTitle"))
             {
                 Token title_text = {0};
-                if(RequireToken(tokenizer, "{", 0) &&
-                   RequireTokenType(tokenizer, TOKEN_text, &title_text) &&
-                   RequireToken(tokenizer, "}", 0))
+
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    PageNode *node = ParseContextAllocateNode(context);
-                    node->type = PAGE_NODE_TYPE_sub_title;
-                    node->string = title_text.string;
-                    node->string_length = title_text.string_length;
-                    node->text_style_flags = text_style_flags;
-                    *node_store_target = node;
-                    node_store_target = &(*node_store_target)->next;
+                    if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
+                       RequireTokenType(tokenizer, TOKEN_string_constant, &title_text))
+                    {
+                        PageNode *node = ParseContextAllocateNode(context);
+                        node->type = PAGE_NODE_TYPE_sub_title;
+                        node->string = title_text.string;
+                        node->string_length = title_text.string_length;
+                        TrimQuotationMarks(&node->string, &node->string_length);
+                        node->text_style_flags = text_style_flags;
+                        *node_store_target = node;
+                        node_store_target = &(*node_store_target)->next;
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "A sub-title tag expects {<sub-title text>} to follow.");
+                    }
+
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Missing '}'.");
+                    } 
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A sub-title tag expects {<subtitle text>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
-            
+
             else if(TokenMatch(tag, "@Description"))
             {
-                Token description_text = {0};
-                if(RequireToken(tokenizer, "{", 0) &&
-                   RequireTokenType(tokenizer, TOKEN_text, &description_text) &&
-                   RequireToken(tokenizer, "}", 0))
+                Token text = {0};
+
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    PageNode *node = ParseContextAllocateNode(context);
-                    node->type = PAGE_NODE_TYPE_description;
-                    node->string = description_text.string;
-                    node->string_length = description_text.string_length;
-                    node->text_style_flags = text_style_flags;
-                    *node_store_target = node;
-                    node_store_target = &(*node_store_target)->next;
+                    if(RequireTokenType(tokenizer, TOKEN_text, &text) ||
+                       RequireTokenType(tokenizer, TOKEN_string_constant, &text))
+                    {
+                        PageNode *node = ParseContextAllocateNode(context);
+                        node->type = PAGE_NODE_TYPE_description;
+                        node->string = text.string;
+                        node->string_length = text.string_length;
+                        TrimQuotationMarks(&node->string, &node->string_length);
+                        node->text_style_flags = text_style_flags;
+                        *node_store_target = node;
+                        node_store_target = &(*node_store_target)->next;
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "A description tag expects {<description text>} to follow.");
+                    }
+
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Missing '}'.");
+                    }
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A description tag expects {<description text>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
             else if(TokenMatch(tag, "@YouTube"))
             {
-                Token open_bracket = {0};
-                if(RequireToken(tokenizer, "{", &open_bracket))
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    char *link = open_bracket.string+1;
-                    int link_length = 0;
-                    
-                    int bracket_stack = 1;
-                    for(int i = 0; link[i]; ++i)
-                    {
-                        if(link[i] == '{')
-                        {
-                            ++bracket_stack;
-                        }
-                        else if(link[i] == '}')
-                        {
-                            --bracket_stack;
-                        }
-                        
-                        if(bracket_stack == 0)
-                        {
-                            break;
-                        }
-                        
-                        ++link_length;
-                    }
-                    
                     PageNode *node = ParseContextAllocateNode(context);
                     node->type = PAGE_NODE_TYPE_youtube;
-                    node->string = link;
-                    node->string_length = link_length;
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-                    
-                    tokenizer->at = link + link_length;
-                    if(!RequireToken(tokenizer, "}", 0))
+
+                    if(ParseLink(context, tokenizer, &node->string, &node->string_length))
                     {
-                        PushParseError(context, tokenizer, "Expected } to follow YouTube link.");
+                        if(!RequireToken(tokenizer, "}", 0))
+                        {
+                            PushParseError(context, tokenizer, "Missing '}'.");
+                        }
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "A YouTube tag expects {<youtube link>} to follow.");
                     }
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A YouTube tag expects {<link>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
             else if(TokenMatch(tag, "@Image") || TokenMatch(tag, "@ThumbnailImage"))
             {
-                Token open_bracket = {0};
-                if(RequireToken(tokenizer, "{", &open_bracket))
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    char *link = open_bracket.string+1;
-                    int link_length = 0;
-                    
-                    int bracket_stack = 1;
-                    for(int i = 0; link[i]; ++i)
-                    {
-                        if(link[i] == '{')
-                        {
-                            ++bracket_stack;
-                        }
-                        else if(link[i] == '}')
-                        {
-                            --bracket_stack;
-                        }
-                        
-                        if(bracket_stack == 0)
-                        {
-                            break;
-                        }
-                        
-                        ++link_length;
-                    }
-                    
                     PageNode *node = ParseContextAllocateNode(context);
-                    node->type = TokenMatch(tag, "@ThumbnailImage") ?
-                        PAGE_NODE_TYPE_thumbnail_image : PAGE_NODE_TYPE_image;
-                    
-                    node->string = link;
-                    node->string_length = link_length;
+                    node->type = TokenMatch(tag, "@Image") ? PAGE_NODE_TYPE_image : PAGE_NODE_TYPE_thumbnail_image;
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-                    
-                    tokenizer->at = link + link_length;
-                    if(!RequireToken(tokenizer, "}", 0))
+
+                    if(ParseLink(context, tokenizer, &node->string, &node->string_length))
                     {
-                        PushParseError(context, tokenizer, "Expected } to follow image path.");
+                        if(!RequireToken(tokenizer, "}", 0))
+                        {
+                            PushParseError(context, tokenizer, "Missing '}'.");
+                        }
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "An image tag expects {<image link>} to follow.");
                     }
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A YouTube tag expects {<link>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
@@ -756,129 +783,82 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             
             else if(TokenMatch(tag, "@Link"))
             {
-                Token open_bracket = {0};
-                if(RequireToken(tokenizer, "{", &open_bracket))
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    
-                    char *text = 0;
-                    int text_length = 0;
-                    
-                    char *link = 0;
-                    int link_length = 0;
-                    
-                    text = open_bracket.string+1;
-                    for(int i = 0; text[i]; ++i)
-                    {
-                        if(text[i] == '"')
-                        {
-                            text = text+i+1;
-                            break;
-                        }
-                    }
-                    for(text_length = 0; text[text_length] && text[text_length] != '"'; ++text_length);
-                    
-                    link = text+text_length+1;
-                    for(int i = 0; link[i]; ++i)
-                    {
-                        if(link[i] == '"')
-                        {
-                            link = link+i+1;
-                            break;
-                        }
-                    }
-                    for(link_length = 0; link[link_length] && link[link_length] != '"'; ++link_length);
-                    
                     PageNode *node = ParseContextAllocateNode(context);
                     node->type = PAGE_NODE_TYPE_link;
-                    node->string = text;
-                    node->string_length = text_length;
-                    node->link.url = link;
-                    node->link.url_length = link_length;
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-                    
-                    tokenizer->at = link + link_length+1;
+
+                    if(!ParseTextArgument(context, tokenizer, &node->string, &node->string_length))
+                    {
+                        PushParseError(context, tokenizer, "A link tag expects {<text>, <link>} to follow.");
+                        goto end_link_parse;
+                    }
+                    SkipToAfterNextComma(tokenizer);
+
+                    if(!ParseLink(context, tokenizer, &node->link.url, &node->link.url_length))
+                    {
+                        PushParseError(context, tokenizer, "A link tag expects {<text>, <link>} to follow.");
+                        goto end_link_parse;
+                    }
+
                     if(!RequireToken(tokenizer, "}", 0))
                     {
-                        PushParseError(context, tokenizer, "Expected } to follow link data.");
+                        PushParseError(context, tokenizer, "Missing '}'.");
                     }
+
+                    end_link_parse:;
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A FeatureButton tag expects {<image>,<string>,<link>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
             else if(TokenMatch(tag, "@FeatureButton"))
             {
-                Token open_bracket = {0};
-                if(RequireToken(tokenizer, "{", &open_bracket))
+                if(RequireToken(tokenizer, "{", 0))
                 {
-                    
-                    char *image = 0;
-                    int image_length = 0;
-                    
-                    char *text = 0;
-                    int text_length = 0;
-                    
-                    char *link = 0;
-                    int link_length = 0;
-                    
-                    image = open_bracket.string+1;
-                    for(int i = 0; image[i]; ++i)
-                    {
-                        if(image[i] == '"')
-                        {
-                            image = image+i+1;
-                            break;
-                        }
-                    }
-                    for(image_length = 0; image[image_length] && image[image_length] != '"'; ++image_length);
-                    
-                    text = image+image_length+1;
-                    for(int i = 0; text[i]; ++i)
-                    {
-                        if(text[i] == '"')
-                        {
-                            text = text+i+1;
-                            break;
-                        }
-                    }
-                    for(text_length = 0; text[text_length] && text[text_length] != '"'; ++text_length);
-                    
-                    link = text+text_length+1;
-                    for(int i = 0; link[i]; ++i)
-                    {
-                        if(link[i] == '"')
-                        {
-                            link = link+i+1;
-                            break;
-                        }
-                    }
-                    for(link_length = 0; link[link_length] && link[link_length] != '"'; ++link_length);
-                    
                     PageNode *node = ParseContextAllocateNode(context);
                     node->type = PAGE_NODE_TYPE_feature_button;
-                    node->string = text;
-                    node->string_length = text_length;
-                    node->feature_button.image_path = image;
-                    node->feature_button.image_path_length = image_length;
-                    node->feature_button.link = link;
-                    node->feature_button.link_length = link_length;
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-                    
-                    tokenizer->at = link + link_length+1;
+
+                    if(!ParseTextArgument(context, tokenizer, &node->feature_button.image_path, &node->feature_button.image_path_length))
+                    {
+                        PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
+                        goto end_feature_button_parse;
+                    }
+
+                    SkipToAfterNextComma(tokenizer);
+
+                    if(!ParseLink(context, tokenizer, &node->string, &node->string_length))
+                    {
+                        PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
+                        goto end_feature_button_parse;
+                    }
+
+                    SkipToAfterNextComma(tokenizer);
+
+                    if(!ParseLink(context, tokenizer, &node->feature_button.link, &node->feature_button.link_length))
+                    {
+                        PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
+                        goto end_feature_button_parse;
+                    }
+
                     if(!RequireToken(tokenizer, "}", 0))
                     {
-                        PushParseError(context, tokenizer, "Expected } to follow feature button data.");
+                        PushParseError(context, tokenizer, "Missing '}'.");
                     }
+
+                    end_feature_button_parse:;
                 }
                 else
                 {
-                    PushParseError(context, tokenizer, "A FeatureButton tag expects {<image>,<string>,<link>} to follow.");
+                    PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
             
@@ -995,7 +975,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     tokenizer->at = str;
                     if(!RequireToken(tokenizer, "}", 0))
                     {
-                        PushParseError(context, tokenizer, "Expected } to follow date data.");
+                        PushParseError(context, tokenizer, "Expected '}' to follow date data.");
                     }
                 }
                 else
@@ -1006,7 +986,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             
             else
             {
-                PushParseError(context, tokenizer, "Malformed tag");
+                PushParseError(context, tokenizer, "Malformed tag.");
             }
             
         }
@@ -1026,7 +1006,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             }
             else
             {
-                PushParseError(context, tokenizer, "Unexpected symbol \"%.*s\"", symbol.string_length,
+                PushParseError(context, tokenizer, "Unexpected symbol '%.*s'", symbol.string_length,
                                symbol.string);
             }
         }
@@ -1052,6 +1032,11 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
         }
         
         token = PeekToken(tokenizer);
+
+        if(context->error_stack_size > 0)
+        {
+            break;
+        }
     }
     
     return result;
@@ -1333,7 +1318,8 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                              CharIsDigit(node->string[i+token_length]));
                             ++token_length);
                         
-                        static char *keywords[] = {
+                        static char *keywords[] =
+                        {
                             "auto", "break", "case", "char",
                             "const", "continue", "default", "do", "double",
                             "else", "enum", "extern", "float",

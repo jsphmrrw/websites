@@ -28,11 +28,11 @@ Within this structure, some specific feature or phenomenon within a particular g
 
 To explain this principle, I first will explain a visual model of API genericism on which I ground my statements. Imagine, within this visual model, that a circle is some action that can be referred to by an API. For any given circle, it can also have a number of children, which represents an API's ability to differentiate between several different actions with variation in user input. This forms a tree structure, within which each level corresponds directly with different levels of genericism.
 
-@Image {data/api_tree.png}
+@Image {"data/api_tree.png"}
 
 An API is a streamlined way to refer to a number of specific traversals of the tree, but an API only supports the children of the node at which it points. This implies that as an API moves closer to the tree's root, it supports more but requires more information to determine the correct path:
 
-@Image {data/api_tree_paths.png}
+@Image {"data/api_tree_paths.png"}
 
 By definition, the root of this tree is the most generic API possible, because all subtrees can be specified by it, and there is no parent. The point of an API is to provide the ability to refer to specific actions, and therefore, despite the modern software engineering culture that has arbitrarily valued the ability of an API to be generic, this API is both useless and meaningless. It specifies nothing, and it provides no ability to the user, because if this API is used, no knowledge has been gained about which actions to take.
 
