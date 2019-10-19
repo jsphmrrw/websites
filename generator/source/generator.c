@@ -90,6 +90,7 @@ typedef enum PageNodeType PageNodeType;
 enum PageNodeType
 {
     PAGE_NODE_TYPE_invalid,
+    PAGE_NODE_TYPE_page_title,
     PAGE_NODE_TYPE_title,
     PAGE_NODE_TYPE_sub_title,
     PAGE_NODE_TYPE_description,
@@ -575,7 +576,41 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
         if(RequireTokenType(tokenizer, TOKEN_tag, &tag))
         {
             
-            if(TokenMatch(tag, "@Title"))
+            if(TokenMatch(tag, "@PageTitle"))
+            {
+                Token title_text = {0};
+
+                if(RequireToken(tokenizer, "{", 0))
+                {
+                    if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
+                       RequireTokenType(tokenizer, TOKEN_string_constant, &title_text))
+                    {
+                        PageNode *node = ParseContextAllocateNode(context);
+                        node->type = PAGE_NODE_TYPE_page_title;
+                        node->string = title_text.string;
+                        node->string_length = title_text.string_length;
+                        TrimQuotationMarks(&node->string, &node->string_length);
+                        node->text_style_flags = text_style_flags;
+                        *node_store_target = node;
+                        node_store_target = &(*node_store_target)->next;
+                    }
+                    else
+                    {
+                        PushParseError(context, tokenizer, "A page title tag expects {<title text>} to follow.");
+                    }
+
+                    if(!RequireToken(tokenizer, "}", 0))
+                    {
+                        PushParseError(context, tokenizer, "Missing '}'.");
+                    } 
+                }
+                else
+                {
+                    PushParseError(context, tokenizer, "Expected '{'.");
+                }
+            }
+
+            else if(TokenMatch(tag, "@Title"))
             {
                 Token title_text = {0};
 
@@ -1528,8 +1563,17 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
     }
 }
 
+typedef struct SiteInfo SiteInfo;
+struct SiteInfo
+{
+    char *canonical_url;
+    char *main_title;
+    char *author;
+    char *twitter_handle;
+};
+
 static void
-OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int file_count)
+OutputHTMLFromPageNodeTreeToFile(SiteInfo *site_info, ProcessedFile *page, ProcessedFile *files, int file_count)
 {
     FILE *file = page->html_output_file;
     fprintf(file, "<!DOCTYPE html>\n");
@@ -1538,8 +1582,8 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
     fprintf(file, "<meta charset=\"utf-8\">");
     // NOTE(bvisness): Consider adding mobile-friendly styles and then adding this line
     // fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-    fprintf(file, "<meta name=\"author\" content=\"Ryan Fleury\">\n");
-    fprintf(file, "<title>%s | Ryan Fleury</title>\n", page->main_title);
+    fprintf(file, "<meta name=\"author\" content=\"%s\">\n", site_info->author);
+    fprintf(file, "<title>%s%s%s</title>\n", page->main_title, site_info->main_title ? " | " : "", site_info->main_title ? site_info->main_title : "");
     fprintf(file, "<meta property=\"og:title\" content=\"%s\">\n", page->main_title);
     fprintf(file, "<meta name=\"twitter:title\" content=\"%s\">\n", page->main_title);
     if (page->description) {
@@ -1547,12 +1591,12 @@ OutputHTMLFromPageNodeTreeToFile(ProcessedFile *page, ProcessedFile *files, int 
         fprintf(file, "<meta property=\"og:description\" content=\"%s\">\n", page->description);
         fprintf(file, "<meta name=\"twitter:description\" content=\"View the album on Flickr.\">\n", page->description);
     }
-    fprintf(file, "<link rel=\"canonical\" href=\"http://ryanfleury.net/%s\">\n", page->url);
+    fprintf(file, "<link rel=\"canonical\" href=\"%s/%s\">\n", site_info->canonical_url, page->url);
     fprintf(file, "<meta property=\"og:type\" content=\"website\">\n");
-    fprintf(file, "<meta property=\"og:url\" content=\"http://ryanfleury.net/%s\">\n", page->url);
-    fprintf(file, "<meta property=\"og:site_name\" content=\"Ryan Fleury\">\n");
+    fprintf(file, "<meta property=\"og:url\" content=\"%s/%s\">\n", site_info->canonical_url, page->url);
+    fprintf(file, "<meta property=\"og:site_name\" content=\"%s\">\n", site_info->main_title ? site_info->main_title : "");
     fprintf(file, "<meta name=\"twitter:card\" content=\"summary\">\n");
-    fprintf(file, "<meta name=\"twitter:site\" content=\"@ryanjfleury\">\n");
+    fprintf(file, "<meta name=\"twitter:site\" content=\"%s\">\n", site_info->twitter_handle ? site_info->twitter_handle : "");
     fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">\n");
     fprintf(file, "</head>\n");
     fprintf(file, "<body>\n");
@@ -1594,10 +1638,24 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
         
         for(PageNode *node = page; node; node = node->next)
         {
-            if(node->type == PAGE_NODE_TYPE_title)
+            if(node->type == PAGE_NODE_TYPE_page_title)
             {
                 processed_file.main_title = ParseContextAllocateCStringCopyN(context, node->string, node->string_length);
                 break;
+            }
+        }
+
+        // NOTE(rjf): If a PageTitle has not been specified, then try to grab the first title and use it.
+        if(processed_file.main_title == 0)
+        {
+            processed_file.main_title = "";
+            for(PageNode *node = page; node; node = node->next)
+            {
+                if(node->type == PAGE_NODE_TYPE_title)
+                {
+                    processed_file.main_title = ParseContextAllocateCStringCopyN(context, node->string, node->string_length);
+                    break;
+                }
             }
         }
         
@@ -1674,6 +1732,7 @@ main(int argument_count, char **arguments)
     char *html_footer_path = 0;
     char *html_header = "";
     char *html_footer = "";
+    SiteInfo site_info = {0};
     
     for(int i = 1; i < argument_count; ++i)
     {
@@ -1717,6 +1776,38 @@ main(int argument_count, char **arguments)
                 arguments[i+1] = 0;
                 ++i;
             }
+            else if(CStringMatchCaseInsensitive(arguments[i], "--main_title"))
+            {
+                site_info.main_title = arguments[i+1];
+                Log("Main title set as \"%s\".", site_info.main_title);
+                arguments[i] = 0;
+                arguments[i+1] = 0;
+                ++i;
+            }
+            else if(CStringMatchCaseInsensitive(arguments[i], "--author"))
+            {
+                site_info.author = arguments[i+1];
+                Log("Author set as \"%s\".", site_info.author);
+                arguments[i] = 0;
+                arguments[i+1] = 0;
+                ++i;
+            }
+            else if(CStringMatchCaseInsensitive(arguments[i], "--twitter_handle"))
+            {
+                site_info.twitter_handle = arguments[i+1];
+                Log("Twitter handle set as \"%s\".", site_info.twitter_handle);
+                arguments[i] = 0;
+                arguments[i+1] = 0;
+                ++i;
+            }
+            else if(CStringMatchCaseInsensitive(arguments[i], "--canonical_url"))
+            {
+                site_info.canonical_url = arguments[i+1];
+                Log("Canonical URL set as \"%s\".", site_info.canonical_url);
+                arguments[i] = 0;
+                arguments[i+1] = 0;
+                ++i;
+            }
         }
         
         // NOTE(rjf): Just a file to parse.
@@ -1738,7 +1829,7 @@ main(int argument_count, char **arguments)
     }
     
     ParseContext context = {0};
-    ProcessedFile files[256];
+    ProcessedFile files[1024];
     int file_count = 0;
     
     for(int i = 1; i < argument_count; ++i)
@@ -1822,7 +1913,7 @@ main(int argument_count, char **arguments)
             
             if(file->html_output_file)
             {
-                OutputHTMLFromPageNodeTreeToFile(file, files, file_count);
+                OutputHTMLFromPageNodeTreeToFile(&site_info, file, files, file_count);
             }
             
             if(file->markdown_output_file)
