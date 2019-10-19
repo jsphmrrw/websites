@@ -4,9 +4,9 @@
 
 @Title {Data Desk}
 
-Data Desk is a utility program that I originally wrote as a metaprogramming tool for @Link {"The Melodist", "melodist.html"}. Its purpose is to provide something that I think is missing from C and C++: Properly implemented compile-time type introspection and introspection-based code generation. I've used it for many different kinds of compile-time work in my projects, including entity boilerplate code generation, UI code generation to automatically implement UI that modifies structures, and vertex data generation for maps in @Link {"Dungeoneer", "dungeoneer.html"}.
+Data Desk is a utility program that I originally wrote as a metaprogramming tool for @Link {"The Melodist", "melodist.html"}. Its purpose is to provide something that I think is missing from C and C++: Properly implemented compile-time type introspection and introspection-based code generation. I've used it for many different kinds of compile-time code generation in my projects, including: Entity boilerplate code generation, UI code generation to automatically implement UI that modifies structures, vertex data generation for maps in @Link {"Dungeoneer", "dungeoneer.html"}, data serialization (and unserialization) code, and automatically supporting version-based changes in serialized data formats.
 
-The source code for Data Desk, documentation, and examples can all be @Link {"found online for free", "https://github.com/ryanfleury/data_desk"}. Additionally, here are some prebuilt binaries for a few common platforms: @Link {"Windows (x64)", "data/data_desk_win64.exe" }, @Link {"Windows (x86)", "data/data_desk_win32.exe" }
+The source code for Data Desk, documentation, and examples can all be @Link {"found online for free", "https://github.com/ryanfleury/data_desk"}.
 
 @SubTitle {Screenshots}
 
@@ -16,4 +16,4 @@ The source code for Data Desk, documentation, and examples can all be @Link {"fo
 
 @SubTitle {Video Demonstration}
 
-@YouTube {https://www.youtube.com/watch?v=w66yGWhfS4k}
+@YouTube {https://www.youtube.com/watch?v=-ePt48anEO8}

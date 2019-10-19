@@ -10,10 +10,13 @@ The game jam was for a YouTube video collaboration in which four game developers
 
 The pixel art is a free asset pack that can be found @Link {"here", "https://0x72.itch.io/16x16-dungeon-tileset"}.
 
-The code, the related YouTube videos, and a link to download the game will be posted soon.
+The code is available @Link {"on GitHub", "https://github.com/ryanfleury/dungeoneer"}.
 
 @SubTitle {Screenshots}
 
 @ThumbnailImage { data/dungeoneer_screenshot_1.png }
 @ThumbnailImage { data/dungeoneer_screenshot_2.png }
 @ThumbnailImage { data/dungeoneer_screenshot_3.png }
+
+@SubTitle {Collaboration Video}
+@YouTube {https://www.youtube.com/watch?v=u0GZKJGeQLY}

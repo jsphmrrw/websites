@@ -6,7 +6,7 @@
 
 The Melodist is a long-running project of mine that is meant to capture a world in which music is intertwined with physical reality. The player is given a chance to explore this world, make discoveries, and follow a story that explores music, emotion, and symmetry. The game is meant to be a philosophically interesting and relaxing experience. The game is inspired by my own gaming experiences, where I've learned to value respect for the player's intellect and time, the joy of discovery, and relaxing atmospheres.
 
-The game is written almost completely from scratch in C and C++, depending only on the C runtime and the operating systems on which it runs. It has its own custom compiled scripting language, renderer, physics, immediate-mode UI system, platform layers, audio synthesizer, profiler, developer terminal, and editor.
+The game is written almost completely from scratch in C, depending only on the C runtime and the operating systems on which it runs. It has its own custom compiled scripting language, renderer, physics, immediate-mode UI system, platform layers, audio synthesizer, profiler, developer terminal, and editor.
 
 I am the only programmer on the project. Pixel art for the game has been done by @Link { "Francois Barbary", "https://twitter.com/Pixergg" }, and background music assets have been done by Lachlan Stephen.
 

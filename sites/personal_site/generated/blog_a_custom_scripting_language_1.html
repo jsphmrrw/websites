@@ -34,30 +34,20 @@
 <h2>10 June 2019</h2>
 <hr><br>
 <h2>Motivation</h2>
-<p>
-
-While designing <a class="link" href="melodist.html">The Melodist</a>, I came across the requirement of dialogue sequences and in-engine cutscenes. I wanted the game's dialogue sequences to allow the player to choose what they say, and support the conversation structure that such a system requires. This means that I needed a tool that would allow me to express such branches. I also wanted these conversations to have the ability to depend on game state; a character might say something different depending on how far the player has progressed.
-
-With requirements like these, a scripting language seemed like my best option, but I had never implemented one myself before. Many would suggest using something like Lua or another option, but I wanted to maintain my control over what the scripting language would support, how it would call into native code. For these reasons and others (mainly wanting to further my own personal education on the subject), I decided to write my own scripting language for the game.
-
-At the time, my parsers were written in a "fast-and-loose" fashion. I could see fairly early that this method wouldn't be possible if I wanted to support language features like nested branches and sub-expressions, or have readable and useful error messages. I began researching how programming language parsers are structured, and how they work.</p><hr><br>
+<p>While designing <a class="link" href="melodist.html">The Melodist</a>, I came across the requirement of dialogue sequences and in-engine cutscenes. I wanted the game's dialogue sequences to allow the player to choose what they say, and support the conversation structure that such a system requires. This means that I needed a tool that would allow me to express such branches. I also wanted these conversations to have the ability to depend on game state; a character might say something different depending on how far the player has progressed.</p><p>With requirements like these, a scripting language seemed like my best option, but I had never implemented one myself before. Many would suggest using something like Lua or another option, but I wanted to maintain my control over what the scripting language would support, how it would call into native code. For these reasons and others (mainly wanting to further my own personal education on the subject), I decided to write my own scripting language for the game.</p><p>At the time, my parsers were written in a "fast-and-loose" fashion. I could see fairly early that this method wouldn't be possible if I wanted to support language features like nested branches and sub-expressions, or have readable and useful error messages. I began researching how programming language parsers are structured, and how they work.</p><hr><br>
 <h2>Language Syntax</h2>
-<p>
-
-I first had to think about the syntax of the language that I wanted to write a parser for. I didn't need many features; variables, control-flow logic (loops and conditionals), expressions, and procedure calls would cover the vast majority of what I needed. I decided to go with mostly C-style syntax, but with a few modifications that I preferred for aesthetic reasons (later I would discover that these decisions were actually useful in writing a parser, as C syntax can be more complicated to parse than one might initially assume).
-
-I settled on the following syntax initially, but I wanted to maintain the code's flexibility such that I could make modifications later if necessary.</p><div class="code"><pre>
-<span class="code_text" style="color: #8cba53;">// High-level scripting language; just want a way to use numeric values. For this reason,</span>
-<span class="code_text" style="color: #8cba53;">// just a number type that can hold both integral and non-integral values would be fine.</span>
-<span class="code_text" style="color: #8cba53;">// I also made the decision to have the scripting language be strongly typed, because it</span>
-<span class="code_text" style="color: #8cba53;">// seems to catch bugs more easily than dynamic typed languages can.</span>
+<p>I first had to think about the syntax of the language that I wanted to write a parser for. I didn't need many features; variables, control-flow logic (loops and conditionals), expressions, and procedure calls would cover the vast majority of what I needed. I decided to go with mostly C-style syntax, but with a few modifications that I preferred for aesthetic reasons (later I would discover that these decisions were actually useful in writing a parser, as C syntax can be more complicated to parse than one might initially assume).</p><p>I settled on the following syntax initially, but I wanted to maintain the code's flexibility such that I could make modifications later if necessary.</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// High-level scripting language; just want a way to use numeric values. For this reason,</span>
+<span class="code_text" style="color: #8cba53;">// just a number type that can hold both integral and non-integral values would be fine.</span>
+<span class="code_text" style="color: #8cba53;">// I also made the decision to have the scripting language be strongly typed, because it</span>
+<span class="code_text" style="color: #8cba53;">// seems to catch bugs more easily than dynamic typed languages can.</span>
 var_1 : number = <span class="code_text" style="color: #82c4e5;">2</span>;
 
-<span class="code_text" style="color: #8cba53;">// Very basic type inference for declarations. If a type is not manually specified, infer</span>
-<span class="code_text" style="color: #8cba53;">// it from the assignment.</span>
+<span class="code_text" style="color: #8cba53;">// Very basic type inference for declarations. If a type is not manually specified, infer</span>
+<span class="code_text" style="color: #8cba53;">// it from the assignment.</span>
 var_2 := <span class="code_text" style="color: #82c4e5;">3</span>;
 
-<span class="code_text" style="color: #8cba53;">// No parentheses needed around if-expressions.</span>
+<span class="code_text" style="color: #8cba53;">// No parentheses needed around if-expressions.</span>
 <span class="code_text" style="color: #f4b642;">if</span> var_1 + var_2 &gt; <span class="code_text" style="color: #82c4e5;">4</span>
 {
     SomeGameProcedure(var_1 + var_2);
@@ -65,11 +55,7 @@ var_2 := <span class="code_text" style="color: #82c4e5;">3</span>;
 
 </pre></div><hr><br>
 <h2>The Abstract Syntax Tree</h2>
-<p>
-
-I quickly stumbled across the concept of an abstract syntax tree, which is a data structure that effectively stores, and allows useful traversal of, the important information buried within input source code. An abstract syntax tree is wrenched from the textual content of source code, and with good reason; text, as a form of input, has a monstrously large number of input states. An abstract syntax tree's goal is to contain the information that is actually cared about from this textual input, while discarding the information that isn't important.
-
-Take, for example, this expression:</p><div class="code"><pre>
+<p>I quickly stumbled across the concept of an abstract syntax tree, which is a data structure that effectively stores, and allows useful traversal of, the important information buried within input source code. An abstract syntax tree is wrenched from the textual content of source code, and with good reason; text, as a form of input, has a monstrously large number of input states. An abstract syntax tree's goal is to contain the information that is actually cared about from this textual input, while discarding the information that isn't important.</p><p>Take, for example, this expression:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">int</span> x;
 <span class="code_text" style="color: #f4b642;">if</span> (<span class="code_text" style="color: #82c4e5;">10</span> &gt; (<span class="code_text" style="color: #82c4e5;">3</span> + <span class="code_text" style="color: #82c4e5;">6</span>))
 {
@@ -79,16 +65,10 @@ Take, for example, this expression:</p><div class="code"><pre>
 {
     x = <span class="code_text" style="color: #82c4e5;">2</span> + <span class="code_text" style="color: #82c4e5;">7</span>/(<span class="code_text" style="color: #82c4e5;">4</span>+(<span class="code_text" style="color: #82c4e5;">3</span>*<span class="code_text" style="color: #82c4e5;">1</span>));
 }
-</pre></div><p>
-
-Iterating this string of text linearly to produce the desired result, while perhaps possible, will be incredibly difficult and, ultimately, results in the parsing code being extraordinarily brittle. Some assumptions about the nature of the input might not hold true for all acceptable language inputs, and the second those assumptions are no longer the case (for some given input), the parser will break. Instead, an abstract syntax tree can be generated:</p><div class="image_container"><img class="image" src="data/ast_example.png"></div>
-<p>
-
-Then, to generate code, it's just a matter of traversing the abstract syntax tree with simple generation rules for each tree node.</p><hr><br>
+</pre></div><p>Iterating this string of text linearly to produce the desired result, while perhaps possible, will be incredibly difficult and, ultimately, results in the parsing code being extraordinarily brittle. Some assumptions about the nature of the input might not hold true for all acceptable language inputs, and the second those assumptions are no longer the case (for some given input), the parser will break. Instead, an abstract syntax tree can be generated:</p><div class="image_container"><img class="image" src="data/ast_example.png"></div>
+<p>Then, to generate code, it's just a matter of traversing the abstract syntax tree with simple generation rules for each tree node.</p><hr><br>
 <h2>Tokenization</h2>
-<p>
-
-An abstract syntax tree sounds all well and good, but how is one generated from input source code? The answer to such a question is <i>parsing</i>. The first important thing I realized about parsers is that it isn't convenient for them to work on units as granular as characters; often times, the parser isn't considering a single character, but rather some number of them. If the parser gets the input text <span class="monospace">123.456</span>, it doesn't want to consider:</p><div class="code"><pre>
+<p>An abstract syntax tree sounds all well and good, but how is one generated from input source code? The answer to such a question is <i>parsing</i>. The first important thing I realized about parsers is that it isn't convenient for them to work on units as granular as characters; often times, the parser isn't considering a single character, but rather some number of them. If the parser gets the input text <span class="monospace">123.456</span>, it doesn't want to consider:</p><div class="code"><pre>
 <span class="code_text" style="color: #82c4e5;">'1'</span>
 <span class="code_text" style="color: #82c4e5;">'2'</span>
 <span class="code_text" style="color: #82c4e5;">'3'</span>
@@ -96,38 +76,26 @@ An abstract syntax tree sounds all well and good, but how is one generated from 
 <span class="code_text" style="color: #82c4e5;">'4'</span>
 <span class="code_text" style="color: #82c4e5;">'5'</span>
 <span class="code_text" style="color: #82c4e5;">'6'</span>
-</pre></div><p>
-
-It wants to consider the less-granular unit of:</p><div class="code"><pre>
+</pre></div><p>It wants to consider the less-granular unit of:</p><div class="code"><pre>
 <span class="code_text" style="color: #82c4e5;">123.456</span>
-</pre></div><p>
-
-My first step was to write a tokenizer. In order to write a parser, I wanted the code to be in semantics regarding these tokens, because that is the smallest possible unit that the parser will care about. Writing the parser in these terms does lose the lower-level, more granular control and consideration of characters, but in cases like this, where some abstraction holds for all possible interaction points between two systems, I think ignoring the lower-level unit of smaller-granularity, the character, is a benefit. I don't care about the lower-level, more granular control over characters, because the only part of the characters that matters is what they <i>combine to form</i>. Because of this reasoning, this seemed like a worthy tradeoff to me.
-
-Once the tokenizer was settled on, there seemed to be two options to me: Generating a token buffer, or stepping linearly through the input character buffer and tokenizing it as it is swept through. Initially, I had the idea of first generating a token buffer. This would work, and has the benefit that the parser has the ability of randomly accessing some token given a specific index. However, it has the drawback of requiring some form of memory allocation.
-
-I had to ask the question whether the ability to randomly access tokens was actually something that the parser needed to do. It seemed to be the case that it really wasn't something that needed to happen often; in the vast majority of cases, tokens are considered linearly, and in a few small minority of cases, a small subset of surrounding local tokens needs to be considered. For example, consider the following "language":</p><div class="code"><pre>
-foo : <span class="code_text" style="color: #f4b642;">int</span>; <span class="code_text" style="color: #8cba53;">// Variable declaration in the form &lt;name&gt; : &lt;type&gt;</span>
-bar :: <span class="code_text" style="color: #82c4e5;">5</span>;  <span class="code_text" style="color: #8cba53;">// Constant definition in the form &lt;name&gt; :: &lt;value&gt;</span>
-</pre></div><p>
-
-In the event that an identifier token is found, to understand what that identifier is signaling, the following token must be read. A <span class="monospace">:</span> signals a variable declaration, and a <span class="monospace">::</span> signals a constant declaration. However, reading this in a linear tokenizer is as simple as backing up the position of the tokenizer and resetting, <i>or</i> storing off the token that contains the identifier information so that it can be used later. A linear tokenizer seemed to be the better set of tradeoffs to me for the properties that I cared about, and it maintained minimization of allocation, speed, and simplicity.
-
-The most granular of tokenizer functions that I cared about started with me first wanting the ability to get a token given some <span class="monospace">char</span> buffer:</p><div class="code"><pre>
+</pre></div><p>My first step was to write a tokenizer. In order to write a parser, I wanted the code to be in semantics regarding these tokens, because that is the smallest possible unit that the parser will care about. Writing the parser in these terms does lose the lower-level, more granular control and consideration of characters, but in cases like this, where some abstraction holds for all possible interaction points between two systems, I think ignoring the lower-level unit of smaller-granularity, the character, is a benefit. I don't care about the lower-level, more granular control over characters, because the only part of the characters that matters is what they <i>combine to form</i>. Because of this reasoning, this seemed like a worthy tradeoff to me.</p><p>Once the tokenizer was settled on, there seemed to be two options to me: Generating a token buffer, or stepping linearly through the input character buffer and tokenizing it as it is swept through. Initially, I had the idea of first generating a token buffer. This would work, and has the benefit that the parser has the ability of randomly accessing some token given a specific index. However, it has the drawback of requiring some form of memory allocation.</p><p>I had to ask the question whether the ability to randomly access tokens was actually something that the parser needed to do. It seemed to be the case that it really wasn't something that needed to happen often; in the vast majority of cases, tokens are considered linearly, and in a few small minority of cases, a small subset of surrounding local tokens needs to be considered. For example, consider the following "language":</p><div class="code"><pre>
+foo : <span class="code_text" style="color: #f4b642;">int</span>; <span class="code_text" style="color: #8cba53;">// Variable declaration in the form &lt;name&gt; : &lt;type&gt;</span>
+bar :: <span class="code_text" style="color: #82c4e5;">5</span>;  <span class="code_text" style="color: #8cba53;">// Constant definition in the form &lt;name&gt; :: &lt;value&gt;</span>
+</pre></div><p>In the event that an identifier token is found, to understand what that identifier is signaling, the following token must be read. A <span class="monospace">:</span> signals a variable declaration, and a <span class="monospace">::</span> signals a constant declaration. However, reading this in a linear tokenizer is as simple as backing up the position of the tokenizer and resetting, <i>or</i> storing off the token that contains the identifier information so that it can be used later. A linear tokenizer seemed to be the better set of tradeoffs to me for the properties that I cared about, and it maintained minimization of allocation, speed, and simplicity.</p><p>The most granular of tokenizer functions that I cared about started with me first wanting the ability to get a token given some <span class="monospace">char</span> buffer:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">enum</span> TokenType TokenType;
 <span class="code_text" style="color: #f4b642;">enum</span> TokenType
 {
-    <span class="code_text" style="color: #8cba53;">// Token types</span>
+    <span class="code_text" style="color: #8cba53;">// Token types</span>
 };
 
 <span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">struct</span> Token Token;
 <span class="code_text" style="color: #f4b642;">struct</span> Token
 {
     TokenType type;
-    <span class="code_text" style="color: #8cba53;">// Note that I am storing both a pointer to the beginning of the token string</span>
-    <span class="code_text" style="color: #8cba53;">// and also the length. The string cannot be assumed to be null-terminated,</span>
-    <span class="code_text" style="color: #8cba53;">// because it will point directly into the original input character buffer.</span>
-    <span class="code_text" style="color: #8cba53;">// This saves me from needing dynamic memory allocation.</span>
+    <span class="code_text" style="color: #8cba53;">// Note that I am storing both a pointer to the beginning of the token string</span>
+    <span class="code_text" style="color: #8cba53;">// and also the length. The string cannot be assumed to be null-terminated,</span>
+    <span class="code_text" style="color: #8cba53;">// because it will point directly into the original input character buffer.</span>
+    <span class="code_text" style="color: #8cba53;">// This saves me from needing dynamic memory allocation.</span>
     <span class="code_text" style="color: #f4b642;">char</span> *string;
     <span class="code_text" style="color: #f4b642;">int</span> string_length;
 };
@@ -135,12 +103,10 @@ The most granular of tokenizer functions that I cared about started with me firs
 Token GetNextTokenFromCharacterBuffer(<span class="code_text" style="color: #f4b642;">char</span> *buffer)
 {
     Token token = {<span class="code_text" style="color: #82c4e5;">0</span>};
-    <span class="code_text" style="color: #8cba53;">// Search the buffer and form a token if possible.</span>
+    <span class="code_text" style="color: #8cba53;">// Search the buffer and form a token if possible.</span>
     <span class="code_text" style="color: #f4b642;">return</span> token;
 }
-</pre></div><p>
-
-This structure makes tokenization simple, and due to the allocation-less tokens, the only function actually happening here is the extraction of important information from a buffer with no side-effects. I found that the <span class="monospace">GetNextTokenFromCharacterBuffer</span> makes for an extremely nice-to-use, granular, and low-level tokenization function. The internals of that function look a bit like this:</p><div class="code"><pre>
+</pre></div><p>This structure makes tokenization simple, and due to the allocation-less tokens, the only function actually happening here is the extraction of important information from a buffer with no side-effects. I found that the <span class="monospace">GetNextTokenFromCharacterBuffer</span> makes for an extremely nice-to-use, granular, and low-level tokenization function. The internals of that function look a bit like this:</p><div class="code"><pre>
 Token token = {<span class="code_text" style="color: #82c4e5;">0</span>};
 
 <span class="code_text" style="color: #f4b642;">for</span>(<span class="code_text" style="color: #f4b642;">int</span> i = <span class="code_text" style="color: #82c4e5;">0</span>; buffer[i]; ++i)
@@ -148,58 +114,52 @@ Token token = {<span class="code_text" style="color: #82c4e5;">0</span>};
     <span class="code_text" style="color: #f4b642;">if</span>(CharIsAlpha(buffer[i]) || buffer[i] == <span class="code_text" style="color: #82c4e5;">'_'</span>)
     {
         token.string = buffer+i;
-        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
+        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
         token.type = TOKEN_TYPE_alphanumeric_block;
         <span class="code_text" style="color: #f4b642;">goto</span> found_token;
     }
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(CharIsDigit(buffer[i]))
     {
         token.string = buffer+i;
-        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
+        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
         token.type = TOKEN_TYPE_numeric_block;
         <span class="code_text" style="color: #f4b642;">goto</span> found_token;
     }
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(CharIsSymbol(buffer[i]))
     {
         token.string = buffer+i;
-        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
+        token.string_length = ...; <span class="code_text" style="color: #8cba53;">// Calculate this, depending on token-termination rules</span>
         token.type = TOKEN_TYPE_symbolic_block;
         <span class="code_text" style="color: #f4b642;">goto</span> found_token;
     }
     <span class="code_text" style="color: #f4b642;">else</span>
     {
-        <span class="code_text" style="color: #8cba53;">// Other cases.</span>
+        <span class="code_text" style="color: #8cba53;">// Other cases.</span>
     }
 }
 
 found_token:;
 <span class="code_text" style="color: #f4b642;">return</span> token;
-</pre></div><p>
-
-Using this function, I found that I could write a number of other, more useful tokenization and parsing functions. The best part of this setup is that all code pertaining to how the text is tokenized is centralized, so if tokenization needs to be modified, only this one location needs to change. This was especially useful in my case, where I wanted to be able to modify syntax of the scripting language easily.
-
-I found out that all tokenizer state was more than just a character buffer to read from; specifically, the tokenizer needs to know about location-information like what line it is on, what character within the line it's on, and what file it's in. I introduced a struct to bundle this information together, as it normally has to be accessed together:</p><div class="code"><pre>
+</pre></div><p>Using this function, I found that I could write a number of other, more useful tokenization and parsing functions. The best part of this setup is that all code pertaining to how the text is tokenized is centralized, so if tokenization needs to be modified, only this one location needs to change. This was especially useful in my case, where I wanted to be able to modify syntax of the scripting language easily.</p><p>I found out that all tokenizer state was more than just a character buffer to read from; specifically, the tokenizer needs to know about location-information like what line it is on, what character within the line it's on, and what file it's in. I introduced a struct to bundle this information together, as it normally has to be accessed together:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">struct</span> Tokenizer Tokenizer;
 <span class="code_text" style="color: #f4b642;">struct</span> Tokenizer
 {
-    <span class="code_text" style="color: #f4b642;">char</span> *at;         <span class="code_text" style="color: #8cba53;">// Where the tokenizer is at in its scan.</span>
-    <span class="code_text" style="color: #f4b642;">char</span> *filename;   <span class="code_text" style="color: #8cba53;">// The name of the file that the tokenizer is currently scanning.</span>
-    <span class="code_text" style="color: #f4b642;">int</span> line;         <span class="code_text" style="color: #8cba53;">// The line number on which the tokenizer's scanning position is on.</span>
-    <span class="code_text" style="color: #f4b642;">int</span> <span class="code_text" style="color: #f4b642;">char</span>;         <span class="code_text" style="color: #8cba53;">// The character number on which the tokenizer's scanning position is on.</span>
+    <span class="code_text" style="color: #f4b642;">char</span> *at;         <span class="code_text" style="color: #8cba53;">// Where the tokenizer is at in its scan.</span>
+    <span class="code_text" style="color: #f4b642;">char</span> *filename;   <span class="code_text" style="color: #8cba53;">// The name of the file that the tokenizer is currently scanning.</span>
+    <span class="code_text" style="color: #f4b642;">int</span> line;         <span class="code_text" style="color: #8cba53;">// The line number on which the tokenizer's scanning position is on.</span>
+    <span class="code_text" style="color: #f4b642;">int</span> <span class="code_text" style="color: #f4b642;">char</span>;         <span class="code_text" style="color: #8cba53;">// The character number on which the tokenizer's scanning position is on.</span>
 };
-</pre></div><p>
-
-Three common tokenization functions that I found were extraordinarily useful when writing the language parser where the following extremely simple functions:</p><div class="code"><pre>
-<span class="code_text" style="color: #8cba53;">// Grabs the next token from the tokenizer's position and returns it</span>
-<span class="code_text" style="color: #8cba53;">// without advancing the tokenizer's position.</span>
+</pre></div><p>Three common tokenization functions that I found were extraordinarily useful when writing the language parser where the following extremely simple functions:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// Grabs the next token from the tokenizer's position and returns it</span>
+<span class="code_text" style="color: #8cba53;">// without advancing the tokenizer's position.</span>
 Token PeekToken(Tokenizer *tokenizer)
 {
     <span class="code_text" style="color: #f4b642;">return</span> GetNextTokenFromCharacterBuffer(tokenizer-&gt;at);
 }
 
-<span class="code_text" style="color: #8cba53;">// Returns 1 if the passed token string was found, or 0 otherwise.</span>
-<span class="code_text" style="color: #8cba53;">// If the expected token was found, advance the tokenizer, and store</span>
-<span class="code_text" style="color: #8cba53;">// the found token at token_ptr (if it is not null). </span>
+<span class="code_text" style="color: #8cba53;">// Returns 1 if the passed token string was found, or 0 otherwise.</span>
+<span class="code_text" style="color: #8cba53;">// If the expected token was found, advance the tokenizer, and store</span>
+<span class="code_text" style="color: #8cba53;">// the found token at token_ptr (if it is not null). </span>
 <span class="code_text" style="color: #f4b642;">int</span> RequireToken(Tokenizer *tokenizer, <span class="code_text" style="color: #f4b642;">char</span> *string, Token *token_ptr)
 {
     <span class="code_text" style="color: #f4b642;">int</span> match = <span class="code_text" style="color: #82c4e5;">0</span>;
@@ -215,9 +175,9 @@ Token PeekToken(Tokenizer *tokenizer)
     <span class="code_text" style="color: #f4b642;">return</span> match;
 }
 
-<span class="code_text" style="color: #8cba53;">// Returns 1 if the passed token type was found, or 0 otherwise.</span>
-<span class="code_text" style="color: #8cba53;">// If the expected token was found, advance the tokenizer, and store</span>
-<span class="code_text" style="color: #8cba53;">// the found token at token_ptr (if it is not null).</span>
+<span class="code_text" style="color: #8cba53;">// Returns 1 if the passed token type was found, or 0 otherwise.</span>
+<span class="code_text" style="color: #8cba53;">// If the expected token was found, advance the tokenizer, and store</span>
+<span class="code_text" style="color: #8cba53;">// the found token at token_ptr (if it is not null).</span>
 <span class="code_text" style="color: #f4b642;">int</span> RequireTokenType(Tokenizer *tokenizer, TokenType type, Token *token_ptr)
 {
     <span class="code_text" style="color: #f4b642;">int</span> match = <span class="code_text" style="color: #82c4e5;">0</span>;
@@ -232,38 +192,30 @@ Token PeekToken(Tokenizer *tokenizer)
     }
     <span class="code_text" style="color: #f4b642;">return</span> match;
 }
-</pre></div><p>
-
-I found that these three functions provided almost all the functionality from the tokenizer I actually needed in the parser. For example, if I wanted to parse a declaration, I could accomplish that with the following code:</p><div class="code"><pre>
+</pre></div><p>I found that these three functions provided almost all the functionality from the tokenizer I actually needed in the parser. For example, if I wanted to parse a declaration, I could accomplish that with the following code:</p><div class="code"><pre>
 Token identifier = {<span class="code_text" style="color: #82c4e5;">0</span>};
 <span class="code_text" style="color: #f4b642;">if</span>(RequireTokenType(tokenizer, TOKEN_TYPE_alphanumeric_block, &amp;identifier))
 {
     <span class="code_text" style="color: #f4b642;">if</span>(RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">":"</span>, <span class="code_text" style="color: #82c4e5;">0</span>))
     {
-        <span class="code_text" style="color: #8cba53;">// Parse type usage, and create a declaration node that is bound to identifier.</span>
+        <span class="code_text" style="color: #8cba53;">// Parse type usage, and create a declaration node that is bound to identifier.</span>
     }
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">":="</span>, <span class="code_text" style="color: #82c4e5;">0</span>))
     {
-        <span class="code_text" style="color: #8cba53;">// Infer type from following expression, and create a declaration node that is bound to identifier.</span>
+        <span class="code_text" style="color: #8cba53;">// Infer type from following expression, and create a declaration node that is bound to identifier.</span>
     }
     <span class="code_text" style="color: #f4b642;">else</span>
     {
-        <span class="code_text" style="color: #8cba53;">// Something else that starts with an identifier</span>
+        <span class="code_text" style="color: #8cba53;">// Something else that starts with an identifier</span>
     }
 }
 <span class="code_text" style="color: #f4b642;">else</span>
 {
-    <span class="code_text" style="color: #8cba53;">// Something else</span>
+    <span class="code_text" style="color: #8cba53;">// Something else</span>
 }
-</pre></div><p>
-
-An important property about the structure of the above code is that there is always a place where error detection can occur. Every time I branch on the result of <span class="monospace">RequireToken</span> or <span class="monospace">RequireTokenType</span>, I can have an else-case where I either handle other possibilities <i>or</i> detect an unexpected case and push an error message.
-
-After this was all in place, I was ready to start writing the parser.</p><hr><br>
+</pre></div><p>An important property about the structure of the above code is that there is always a place where error detection can occur. Every time I branch on the result of <span class="monospace">RequireToken</span> or <span class="monospace">RequireTokenType</span>, I can have an else-case where I either handle other possibilities <i>or</i> detect an unexpected case and push an error message.</p><p>After this was all in place, I was ready to start writing the parser.</p><hr><br>
 <h2>The Parser</h2>
-<p>
-
-The first important part of the parser to lock down was the structure of the abstract syntax tree in code. I decided to have a simple structure that held some information common to all abstract syntax tree nodes, with a union that could hold more specific node information. It looks something like this:</p><div class="code"><pre>
+<p>The first important part of the parser to lock down was the structure of the abstract syntax tree in code. I decided to have a simple structure that held some information common to all abstract syntax tree nodes, with a union that could hold more specific node information. It looks something like this:</p><div class="code"><pre>
 <span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">enum</span> ASTNodeType ASTNodeType;
 <span class="code_text" style="color: #f4b642;">enum</span> ASTNodeType
 {
@@ -325,22 +277,18 @@ The first important part of the parser to lock down was the structure of the abs
         }
         conditional;
         
-        <span class="code_text" style="color: #8cba53;">// Other node-specific data in here</span>
+        <span class="code_text" style="color: #8cba53;">// Other node-specific data in here</span>
         
     };
 };
-</pre></div><p>
-
-Now that I had an abstract syntax tree structure I could fill out, I just needed to write code to actually do that, building on top of my existing tokenization code. Most of the parsing functionality is fairly natural, similar to the declaration case. However, parsing expressions while maintaining operator-precedence was an interesting problem.
-
-I learned later that there are many different techniques for writing expression parsers, but my initial implementation, the one I have kept, was derived from evolving my first attempt into something functional. The idea I had was to parse expressions from left-to-right, always considering the rest of the expression (everything to the right of some position) to be a sub-expression to be recursively parsed. That implementation looks like this:</p><div class="code"><pre>
+</pre></div><p>Now that I had an abstract syntax tree structure I could fill out, I just needed to write code to actually do that, building on top of my existing tokenization code. Most of the parsing functionality is fairly natural, similar to the declaration case. However, parsing expressions while maintaining operator-precedence was an interesting problem.</p><p>I learned later that there are many different techniques for writing expression parsers, but my initial implementation, the one I have kept, was derived from evolving my first attempt into something functional. The idea I had was to parse expressions from left-to-right, always considering the rest of the expression (everything to the right of some position) to be a sub-expression to be recursively parsed. That implementation looks like this:</p><div class="code"><pre>
 ASTNode *ParseExpression(Tokenizer *tokenizer)
 {
     ASTNode *expression = <span class="code_text" style="color: #82c4e5;">0</span>;
     
     Token token = PeekToken(tokenizer);
     
-    <span class="code_text" style="color: #8cba53;">// First, expect a prefix unary operator.</span>
+    <span class="code_text" style="color: #8cba53;">// First, expect a prefix unary operator.</span>
     <span class="code_text" style="color: #f4b642;">if</span>(token.type == TOKEN_TYPE_symbolic_block)
     {
         NextToken(tokenizer);
@@ -354,16 +302,16 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
         }
     }
     
-    <span class="code_text" style="color: #8cba53;">// If we find a (, we should be expecting a sub-expression, so recursively descend</span>
-    <span class="code_text" style="color: #8cba53;">// to parse it.</span>
+    <span class="code_text" style="color: #8cba53;">// If we find a (, we should be expecting a sub-expression, so recursively descend</span>
+    <span class="code_text" style="color: #8cba53;">// to parse it.</span>
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(TokenMatch(token, <span class="code_text" style="color: #82c4e5;">"("</span>))
     {
         NextToken(tokenizer);
         expression = ParseExpression(tokenizer);
     }
     
-    <span class="code_text" style="color: #8cba53;">// Last case, we've found something starting with an alphanumeric block; assume it</span>
-    <span class="code_text" style="color: #8cba53;">// is an identifier.</span>
+    <span class="code_text" style="color: #8cba53;">// Last case, we've found something starting with an alphanumeric block; assume it</span>
+    <span class="code_text" style="color: #8cba53;">// is an identifier.</span>
     <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(token.type == TOKEN_TYPE_alphanumeric_block)
     {
         NextToken(tokenizer);
@@ -373,26 +321,26 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
         expression-&gt;string_length = token.string_length;
     }
     
-    <span class="code_text" style="color: #8cba53;">// Unexpected token, error.</span>
+    <span class="code_text" style="color: #8cba53;">// Unexpected token, error.</span>
     <span class="code_text" style="color: #f4b642;">else</span>
     {
-        <span class="code_text" style="color: #8cba53;">// Push error message. Unexpected token.</span>
+        <span class="code_text" style="color: #8cba53;">// Push error message. Unexpected token.</span>
         <span class="code_text" style="color: #f4b642;">goto</span> end_parse;
     }
     
-    <span class="code_text" style="color: #8cba53;">// Look at next token.</span>
+    <span class="code_text" style="color: #8cba53;">// Look at next token.</span>
     token = PeekToken(tokenizer);
     
-    <span class="code_text" style="color: #8cba53;">// If the next token is a symbolic block, we're looking at either a post-fix</span>
-    <span class="code_text" style="color: #8cba53;">// unary operator, binary operator, or procedure call. Anything else should be</span>
-    <span class="code_text" style="color: #8cba53;">// an error.</span>
+    <span class="code_text" style="color: #8cba53;">// If the next token is a symbolic block, we're looking at either a post-fix</span>
+    <span class="code_text" style="color: #8cba53;">// unary operator, binary operator, or procedure call. Anything else should be</span>
+    <span class="code_text" style="color: #8cba53;">// an error.</span>
     <span class="code_text" style="color: #f4b642;">if</span>(token.type == TOKEN_TYPE_symbolic_block)
     {
         BinaryOperatorType binary_op_type = GetBinaryOperatorTypeFromToken(token);
         UnaryOperatorType unary_op_type = GetUnaryOperatorTypeFromToken(token);
         
-        <span class="code_text" style="color: #8cba53;">// If we found a valid binary operator type, then we'll treat this</span>
-        <span class="code_text" style="color: #8cba53;">// as a binary operator first.</span>
+        <span class="code_text" style="color: #8cba53;">// If we found a valid binary operator type, then we'll treat this</span>
+        <span class="code_text" style="color: #8cba53;">// as a binary operator first.</span>
         <span class="code_text" style="color: #f4b642;">if</span>(binary_op_type != BINARY_OPERATOR_TYPE_null)
         {
             NextToken(tokenizer);
@@ -404,8 +352,8 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
             expression = op;
         }
         
-        <span class="code_text" style="color: #8cba53;">// If we found a valid unary operator type, we'll treat this as a unary</span>
-        <span class="code_text" style="color: #8cba53;">// operator.</span>
+        <span class="code_text" style="color: #8cba53;">// If we found a valid unary operator type, we'll treat this as a unary</span>
+        <span class="code_text" style="color: #8cba53;">// operator.</span>
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(unary_op_type != BINARY_OPERATOR_TYPE_null)
         {
             NextToken(tokenizer);
@@ -416,8 +364,8 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
             expression = op;
         }
         
-        <span class="code_text" style="color: #8cba53;">// If we found an opening paren here (and didn't find an appropriate operator</span>
-        <span class="code_text" style="color: #8cba53;">// before it), then this is a procedure call case.</span>
+        <span class="code_text" style="color: #8cba53;">// If we found an opening paren here (and didn't find an appropriate operator</span>
+        <span class="code_text" style="color: #8cba53;">// before it), then this is a procedure call case.</span>
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(TokenMatch(token, <span class="code_text" style="color: #82c4e5;">"("</span>))
         {
             NextToken(tokenizer);
@@ -442,13 +390,13 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
                         argument_store_target = &amp;(*argument_store_target)-&gt;next;
                         <span class="code_text" style="color: #f4b642;">if</span>(!RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">","</span>, <span class="code_text" style="color: #82c4e5;">0</span>) &amp;&amp; !RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">")"</span>, <span class="code_text" style="color: #82c4e5;">0</span>))
                         {
-                            <span class="code_text" style="color: #8cba53;">// Unexpected token.</span>
+                            <span class="code_text" style="color: #8cba53;">// Unexpected token.</span>
                             <span class="code_text" style="color: #f4b642;">goto</span> end_parse;
                         }
                     }
                     <span class="code_text" style="color: #f4b642;">else</span>
                     {
-                        <span class="code_text" style="color: #8cba53;">// Something went wrong.</span>
+                        <span class="code_text" style="color: #8cba53;">// Something went wrong.</span>
                         <span class="code_text" style="color: #f4b642;">goto</span> end_parse;
                     }
                 }
@@ -457,10 +405,10 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
             expression = proc;
         }
         
-        <span class="code_text" style="color: #8cba53;">// Unexpected token, error.</span>
+        <span class="code_text" style="color: #8cba53;">// Unexpected token, error.</span>
         <span class="code_text" style="color: #f4b642;">else</span>
         {
-            <span class="code_text" style="color: #8cba53;">// Push error message. Unexpected token.</span>
+            <span class="code_text" style="color: #8cba53;">// Push error message. Unexpected token.</span>
             <span class="code_text" style="color: #f4b642;">goto</span> end_parse;
         }
     }
@@ -475,26 +423,12 @@ ASTNode *ParseExpression(Tokenizer *tokenizer)
     
     <span class="code_text" style="color: #f4b642;">return</span> expression;
 }
-</pre></div><p>
-
-The code is very explicit, and getting to each case requires a relatively large amount of code, but I've found that this is ultimately a better structure for a parser for the following reasons: It is more robust, and the structure maintains the ability to be more robust, to erroneous input, it has the ability to report reasonable error messages that are tied to a very specific location in the input source code (and therefore tied to a very specific piece of malformed input), and it is vastly more debuggable than alternatives. For these reasons, the amount of code seemed like a massively worthwhile tradeoff to me. From what I've found, it is relatively easy and requires very little code to create a parser that accepts <i>valid</i> input. The harder part of the problem is to have a robust parser that helps its user (and helps the programmer writing the code by providing the ability to debug it).
-
-This implementation has a problem though; specifically in the parsing of binary operators: It does not account for operator precedence. My approach to this was to first understand whether the right-hand-side of the parsed binary operator was guarded by parentheses. If not, then operator precedence must be respected. I found that the most straightforward path to maintaining operator precedence here was to first parse the binary operator node, <i>then</i> to fix up the tree if necessary. This might seem a bit difficult at first, but as I've found in the past, drawing out tree-manipulation problems makes them much easier to solve.
-
-First, suppose that we start with the following input:</p><div class="code"><pre>
+</pre></div><p>The code is very explicit, and getting to each case requires a relatively large amount of code, but I've found that this is ultimately a better structure for a parser for the following reasons: It is more robust, and the structure maintains the ability to be more robust, to erroneous input, it has the ability to report reasonable error messages that are tied to a very specific location in the input source code (and therefore tied to a very specific piece of malformed input), and it is vastly more debuggable than alternatives. For these reasons, the amount of code seemed like a massively worthwhile tradeoff to me. From what I've found, it is relatively easy and requires very little code to create a parser that accepts <i>valid</i> input. The harder part of the problem is to have a robust parser that helps its user (and helps the programmer writing the code by providing the ability to debug it).</p><p>This implementation has a problem though; specifically in the parsing of binary operators: It does not account for operator precedence. My approach to this was to first understand whether the right-hand-side of the parsed binary operator was guarded by parentheses. If not, then operator precedence must be respected. I found that the most straightforward path to maintaining operator precedence here was to first parse the binary operator node, <i>then</i> to fix up the tree if necessary. This might seem a bit difficult at first, but as I've found in the past, drawing out tree-manipulation problems makes them much easier to solve.</p><p>First, suppose that we start with the following input:</p><div class="code"><pre>
 <span class="code_text" style="color: #82c4e5;">5</span> * <span class="code_text" style="color: #82c4e5;">3</span> + <span class="code_text" style="color: #82c4e5;">4</span>
-</pre></div><p>
-
-With the above implementation of the code, the following abstract syntax tree will be generated:</p><div class="image_container"><img class="image" src="data/malformed_ast.png"></div>
-<p>
-
-This is a malformed abstract syntax tree with operator-precedence taken into account. The proper abstract syntax tree looks like this:</p><div class="image_container"><img class="image" src="data/proper_ast.png"></div>
-<p>
-
-After taking a look at this problem, I developed a very simple algorithm for fixing up the generated tree in the event that it is malformed, which is comprised of the following steps: Firstly, swap the two binary operator types. Secondly, rotate all binary operator operands in counter-clockwise fashion. Thirdly, swap the original binary operator's left and right children.</p><div class="image_container"><img class="image" src="data/ast_fixup.png"></div>
-<p>
-
-This nuance of the original implementation produces the following code:</p><div class="code"><pre>
+</pre></div><p>With the above implementation of the code, the following abstract syntax tree will be generated:</p><div class="image_container"><img class="image" src="data/malformed_ast.png"></div>
+<p>This is a malformed abstract syntax tree with operator-precedence taken into account. The proper abstract syntax tree looks like this:</p><div class="image_container"><img class="image" src="data/proper_ast.png"></div>
+<p>After taking a look at this problem, I developed a very simple algorithm for fixing up the generated tree in the event that it is malformed, which is comprised of the following steps: Firstly, swap the two binary operator types. Secondly, rotate all binary operator operands in counter-clockwise fashion. Thirdly, swap the original binary operator's left and right children.</p><div class="image_container"><img class="image" src="data/ast_fixup.png"></div>
+<p>This nuance of the original implementation produces the following code:</p><div class="code"><pre>
 NextToken(tokenizer);
 ASTNode *op = AllocateNode(...);
 op-&gt;type = AST_NODE_TYPE_binary_operator;
@@ -505,24 +439,24 @@ op-&gt;binary_operator.left = expression;
 
 op-&gt;binary_operator.right = ParseExpression(tokenizer);
 
-<span class="code_text" style="color: #8cba53;">// If the right-hand-side expression is not guarded by parentheses, and if the</span>
-<span class="code_text" style="color: #8cba53;">// right-hand-side is another binary operator, and if the right-hand-side child</span>
-<span class="code_text" style="color: #8cba53;">// has lower precedence than the parent binary operator, we must perform the</span>
-<span class="code_text" style="color: #8cba53;">// binary operator fix-up algorithm.</span>
+<span class="code_text" style="color: #8cba53;">// If the right-hand-side expression is not guarded by parentheses, and if the</span>
+<span class="code_text" style="color: #8cba53;">// right-hand-side is another binary operator, and if the right-hand-side child</span>
+<span class="code_text" style="color: #8cba53;">// has lower precedence than the parent binary operator, we must perform the</span>
+<span class="code_text" style="color: #8cba53;">// binary operator fix-up algorithm.</span>
 
 <span class="code_text" style="color: #f4b642;">if</span>(!right_hand_side_is_guarded_by_parentheses &amp;&amp;
    op-&gt;binary_operator.right &amp;&amp;
    op-&gt;binary_operator.right-&gt;type == AST_NODE_TYPE_binary_operator &amp;&amp;
    op-&gt;binary_operator.type &gt; op-&gt;binary_operator.right-&gt;binary_operator.type)
 {
-    <span class="code_text" style="color: #8cba53;">// Step 1: Swap the binary operator types.</span>
+    <span class="code_text" style="color: #8cba53;">// Step 1: Swap the binary operator types.</span>
     {
         BinaryOperatorType swap = op-&gt;binary_operator.type;
         op-&gt;binary_operator.type = op-&gt;binary_operator.right-&gt;binary_operator.type;
         op-&gt;binary_operator.right-&gt;binary_operator.type = swap;
     }
     
-    <span class="code_text" style="color: #8cba53;">// Step 2: Rotate children counter-clockwise.</span>
+    <span class="code_text" style="color: #8cba53;">// Step 2: Rotate children counter-clockwise.</span>
     {
         ASTNode *parent_left = op-&gt;binary_operator.left;
         ASTNode *child_left  = op-&gt;binary_operator.right-&gt;binary_operator.left;
@@ -533,7 +467,7 @@ op-&gt;binary_operator.right = ParseExpression(tokenizer);
         
     }
     
-    <span class="code_text" style="color: #8cba53;">// Step 3: Swap parent left/right operands.</span>
+    <span class="code_text" style="color: #8cba53;">// Step 3: Swap parent left/right operands.</span>
     {
         ASTNode *swap = op-&gt;binary_operator.left;
         op-&gt;binary_operator.left = op-&gt;binary_operator.right;
@@ -542,11 +476,7 @@ op-&gt;binary_operator.right = ParseExpression(tokenizer);
 }
 
 expression = op;
-</pre></div><p>
-
-This algorithm works recursively as well, as any improperly parsed sub-tree binary operators will be fixed up before their parent binary operators will be fixed up.
-
-This <span class="monospace">ParseExpression</span> function can then be leveraged in the top-level parsing code, where a list of nodes is generated. At this top-level, a simple loop looks for non-expression statements, like declarations, loops, or branches, and falls back on expression parsing (which handles cases like procedure calls). The top-level code then becomes dramatically simplified:</p><div class="code"><pre>
+</pre></div><p>This algorithm works recursively as well, as any improperly parsed sub-tree binary operators will be fixed up before their parent binary operators will be fixed up.</p><p>This <span class="monospace">ParseExpression</span> function can then be leveraged in the top-level parsing code, where a list of nodes is generated. At this top-level, a simple loop looks for non-expression statements, like declarations, loops, or branches, and falls back on expression parsing (which handles cases like procedure calls). The top-level code then becomes dramatically simplified:</p><div class="code"><pre>
 ASTNode *ParseCode(Tokenizer *tokenizer)
 {
     ASTNode *root = <span class="code_text" style="color: #82c4e5;">0</span>;
@@ -575,15 +505,15 @@ ASTNode *ParseCode(Tokenizer *tokenizer)
         }
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">"while"</span>, <span class="code_text" style="color: #82c4e5;">0</span>))
         {
-            <span class="code_text" style="color: #8cba53;">// ...</span>
+            <span class="code_text" style="color: #8cba53;">// ...</span>
         }
         <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(RequireToken(tokenizer, <span class="code_text" style="color: #82c4e5;">"{"</span>, <span class="code_text" style="color: #82c4e5;">0</span>))
         {
-            <span class="code_text" style="color: #8cba53;">// Sub-code block</span>
+            <span class="code_text" style="color: #8cba53;">// Sub-code block</span>
         }
         <span class="code_text" style="color: #f4b642;">else</span>
         {
-            <span class="code_text" style="color: #8cba53;">// Check for declaration syntax, otherwise assume expression.</span>
+            <span class="code_text" style="color: #8cba53;">// Check for declaration syntax, otherwise assume expression.</span>
         }
     }
     
@@ -591,13 +521,7 @@ ASTNode *ParseCode(Tokenizer *tokenizer)
     
     <span class="code_text" style="color: #f4b642;">return</span> root;
 }
-</pre></div><p>
-
-That covers the most interesting of the parsing problems; everywhere else, it is as simple as calling the tokenizer parsing functions to collect the expected classes of input.
-
-Once the parser was implemented, I had a proper abstract syntax tree being generated from input source code. This is all well and good, but there was more work to do: Actually evaluating those abstract syntax trees. For the case of The Melodist, I decided that the best way to do this would be to compile the script to a custom bytecode instruction format that the game could execute at runtime. This saves any compilation work from happening at run-time, and allows for script compilation to happen offline (though it's worth mentioning that the game can compile scripts at run-time in developer builds). Actually compiling these abstract syntax trees can be done through a relatively straightforward process of traversing the generated abstract syntax tree and generating a big instruction buffer, then writing a simple virtual machine that can iterate through and perform these instructions. This part of The Melodist's scripting engine will be covered in Part 2.
-
-Stay tuned!</p></div>
+</pre></div><p>That covers the most interesting of the parsing problems; everywhere else, it is as simple as calling the tokenizer parsing functions to collect the expected classes of input.</p><p>Once the parser was implemented, I had a proper abstract syntax tree being generated from input source code. This is all well and good, but there was more work to do: Actually evaluating those abstract syntax trees. For the case of The Melodist, I decided that the best way to do this would be to compile the script to a custom bytecode instruction format that the game could execute at runtime. This saves any compilation work from happening at run-time, and allows for script compilation to happen offline (though it's worth mentioning that the game can compile scripts at run-time in developer builds). Actually compiling these abstract syntax trees can be done through a relatively straightforward process of traversing the generated abstract syntax tree and generating a big instruction buffer, then writing a simple virtual machine that can iterate through and perform these instructions. This part of The Melodist's scripting engine will be covered in Part 2.</p><p>Stay tuned!</p></div>
 <div class="separator reverse"></div>
 <div class="footer">
     <a class="link" href="https://github.com/ryanfleury">GitHub</a>
