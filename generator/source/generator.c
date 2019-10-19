@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#define MemorySet memset
-#define MemoryCopy memcpy
-#define CalculateCStringLength strlen
-#define CStringToInt atoi
-#define QuickSort qsort
+
+#define MemorySet               memset
+#define MemoryCopy              memcpy
+#define CalculateCStringLength  strlen
+#define CStringToInt            atoi
+#define QuickSort               qsort
 
 #define Log(...) { fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n"); }
 
@@ -22,7 +23,25 @@ CharIsDigit(int c)
 }
 
 static int
-StringMatchCaseSensitiveN(char *a, char *b, int n)
+CharIsSpace(int c)
+{
+    return (c <= 32);
+}
+
+static int
+CharIsSymbol(int c)
+{
+    return (c == '{' || c == '}' || c == '*' || c == '_' || c == '`');
+}
+
+static int
+CharIsText(int c)
+{
+    return !CharIsSymbol(c) && c != '@';
+}
+
+static int
+CStringMatchCaseSensitiveN(char *a, char *b, int n)
 {
     int matches = 0;
     if(a && b && n)
@@ -41,7 +60,7 @@ StringMatchCaseSensitiveN(char *a, char *b, int n)
 }
 
 static int
-StringMatchCaseInsensitive(char *a, char *b)
+CStringMatchCaseInsensitive(char *a, char *b)
 {
     int matches = 0;
     if(a && b)
@@ -67,7 +86,8 @@ StringMatchCaseInsensitive(char *a, char *b)
 #define OUTPUT_MARKDOWN  (1<<1)
 #define OUTPUT_BBCODE    (1<<2)
 
-enum
+typedef enum PageNodeType PageNodeType;
+enum PageNodeType
 {
     PAGE_NODE_TYPE_invalid,
     PAGE_NODE_TYPE_title,
@@ -87,36 +107,38 @@ enum
     PAGE_NODE_TYPE_date,
 };
 
-enum
+typedef enum CodeLanguageType CodeLanguageType;
+enum CodeLanguageType
 {
     CODE_LANGUAGE_none,
     CODE_LANGUAGE_c,
 };
 
-enum
+typedef enum OrderedListStyle OrderedListStyle;
+enum OrderedListStyle
 {
     ORDERED_LIST_STYLE_numeric,
     ORDERED_LIST_STYLE_alphabetic,
     ORDERED_LIST_STYLE_roman_numeral,
 };
 
-#define TEXT_STYLE_BOLD       0x01
-#define TEXT_STYLE_ITALICS    0x02
-#define TEXT_STYLE_UNDERLINE  0x04
-#define TEXT_STYLE_MONOSPACE  0x08
+#define TEXT_STYLE_BOLD       (1<<0)
+#define TEXT_STYLE_ITALICS    (1<<1)
+#define TEXT_STYLE_UNDERLINE  (1<<2)
+#define TEXT_STYLE_MONOSPACE  (1<<3)
 
 typedef struct PageNode PageNode;
-typedef struct PageNode
+struct PageNode
 {
-    int type;
+    PageNodeType type;
     char *string;
     int string_length;
     PageNode *next;
     int text_style_flags;
+    PageNode *first_parameter;
     
     union
     {
-        
         struct UnorderedList
         {
             PageNode *first_item;
@@ -125,14 +147,14 @@ typedef struct PageNode
         
         struct OrderedList
         {
-            int order_style;
+            OrderedListStyle order_style;
             PageNode *first_item;
         }
         ordered_list;
         
         struct Code
         {
-            int language;
+            CodeLanguageType language;
         }
         code;
         
@@ -159,18 +181,16 @@ typedef struct PageNode
             int day;
         }
         date;
-        
     };
-}
-PageNode;
+};
 
-typedef struct Tokenizer
+typedef struct Tokenizer Tokenizer;
+struct Tokenizer
 {
     char *at;
     int line;
     char *file;
-}
-Tokenizer;
+};
 
 #define PARSE_CONTEXT_MEMORY_BLOCK_SIZE_DEFAULT 4096
 typedef struct ParseContextMemoryBlock ParseContextMemoryBlock;
@@ -190,15 +210,15 @@ struct ParseError
     char *message;
 };
 
-typedef struct ParseContext
+typedef struct ParseContext ParseContext;
+struct ParseContext
 {
     ParseContextMemoryBlock *head;
     ParseContextMemoryBlock *active;
     int error_stack_size;
     int error_stack_size_max;
     ParseError *error_stack;
-}
-ParseContext;
+};
 
 static void *
 ParseContextAllocateMemory(ParseContext *context, int size)
@@ -294,41 +314,25 @@ PushParseError(ParseContext *context, Tokenizer *tokenizer, char *format, ...)
     }
 }
 
-typedef enum TokenType
+typedef enum TokenType TokenType;
+enum TokenType
 {
     TOKEN_none,
     TOKEN_text,
     TOKEN_double_newline,
     TOKEN_symbol,
     TOKEN_tag,
-}
-TokenType;
+    TOKEN_string_constant,
+};
 
-typedef struct Token
+typedef struct Token Token;
+struct Token
 {
     TokenType type;
     char *string;
     int string_length;
-}
-Token;
-
-static int
-CharIsSpace(int c)
-{
-    return (c <= 32);
-}
-
-static int
-CharIsSymbol(int c)
-{
-    return (c == '{' || c == '}' || c == '*' || c == '_' || c == '`');
-}
-
-static int
-CharIsText(int c)
-{
-    return !CharIsSymbol(c) && c != '@';
-}
+    int lines_traversed;
+};
 
 static Token
 GetNextTokenFromBuffer(char *buffer)
@@ -343,6 +347,30 @@ GetNextTokenFromBuffer(char *buffer)
             token.type = TOKEN_double_newline;
             token.string = buffer+i;
             token.string_length = 2;
+            break;
+        }
+        // NOTE(rjf): String Constant
+        else if(buffer[i] == '"')
+        {
+            token.type = TOKEN_string_constant;
+            token.string = buffer+i;
+            token.string_length = 0;
+            int escaped = 0;
+            for(; (token.string[token.string_length] != '"' || escaped) && token.string[token.string_length];
+                ++token.string_length)
+            {
+                if(escaped)
+                {
+                    escaped = 0;
+                }
+                else
+                {
+                    if(token.string[token.string_length] == '\\')
+                    {
+                        escaped = 1;
+                    }
+                }
+            }
             break;
         }
         else if(!CharIsSpace(buffer[i]))
@@ -375,7 +403,7 @@ GetNextTokenFromBuffer(char *buffer)
                     ++k)
                 {
                     int length_to_compare = CalculateCStringLength(symbolic_blocks_to_break_out[k]);
-                    if(StringMatchCaseSensitiveN(symbolic_blocks_to_break_out[k], buffer+i, length_to_compare))
+                    if(CStringMatchCaseSensitiveN(symbolic_blocks_to_break_out[k], buffer+i, length_to_compare))
                     {
                         j = i+length_to_compare;
                         break;
@@ -402,6 +430,14 @@ GetNextTokenFromBuffer(char *buffer)
         }
     }
     
+    for(int i = 0; i < token.string_length; ++i)
+    {
+        if(token.string[i] == '\n')
+        {
+            ++token.lines_traversed;
+        }
+    }
+    
     return token;
 }
 
@@ -417,6 +453,7 @@ NextToken(Tokenizer *tokenizer)
 {
     Token token = GetNextTokenFromBuffer(tokenizer->at);
     tokenizer->at = token.string + token.string_length;
+    tokenizer->line += token.lines_traversed;
     return token;
 }
 
@@ -433,6 +470,7 @@ RequireTokenType(Tokenizer *tokenizer, TokenType type, Token *token_ptr)
             *token_ptr = token;
         }
         tokenizer->at = token.string + token.string_length;
+        tokenizer->line += token.lines_traversed;
     }
     return match;
 }
@@ -441,7 +479,7 @@ static int
 TokenMatch(Token token, char *string)
 {
     return (token.type != TOKEN_none &&
-            StringMatchCaseSensitiveN(token.string, string, token.string_length) &&
+            CStringMatchCaseSensitiveN(token.string, string, token.string_length) &&
             string[token.string_length] == 0);
 }
 
@@ -458,8 +496,34 @@ RequireToken(Tokenizer *tokenizer, char *string, Token *token_ptr)
             *token_ptr = token;
         }
         tokenizer->at = token.string + token.string_length;
+        tokenizer->line += token.lines_traversed;
     }
     return match;
+}
+
+static PageNode *
+ParseTag(ParseContext *context, Tokenizer *tokenizer)
+{
+    PageNode *result = 0;
+    
+    Token tag = {0};
+    if(RequireTokenType(tokenizer, TOKEN_tag, &tag))
+    {
+        PageNode *first_argument = 0;
+        if(RequireToken(tokenizer, "{", 0))
+        {
+            PageNode **argument_list_target = &first_argument;
+            
+            
+            
+            if(!RequireToken(tokenizer, "}", 0))
+            {
+                PushParseError(context, tokenizer, "Missing '}'.");
+            }
+        }
+    }
+    
+    return result;
 }
 
 static PageNode *
@@ -993,7 +1057,8 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
     return result;
 }
 
-typedef struct FileProcessData
+typedef struct FileProcessData FileProcessData;
+struct FileProcessData
 {
     int output_flags;
     char *filename_no_extension;
@@ -1002,10 +1067,10 @@ typedef struct FileProcessData
     char *bbcode_output_path;
     char *html_header;
     char *html_footer;
-}
-FileProcessData;
+};
 
-typedef struct ProcessedFile
+typedef struct ProcessedFile ProcessedFile;
+struct ProcessedFile
 {
     PageNode *root;
     char *filename;
@@ -1024,8 +1089,7 @@ typedef struct ProcessedFile
     FILE *markdown_output_file;
     char *bbcode_output_path;
     FILE *bbcode_output_file;
-}
-ProcessedFile;
+};
 
 static int
 ProcessedFileSortFunction(const void *file1_, const void *file2_)
@@ -1089,7 +1153,8 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
         }
     }
     
-    static char *month_names[] = {
+    static char *month_names[] =
+    {
         "January",
         "February",
         "March",
@@ -1280,7 +1345,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                         
                         for(int k = 0; k < sizeof(keywords)/sizeof(keywords[0]); ++k)
                         {
-                            if(StringMatchCaseSensitiveN(node->string+i, keywords[k], token_length) &&
+                            if(CStringMatchCaseSensitiveN(node->string+i, keywords[k], token_length) &&
                                token_length == CalculateCStringLength(keywords[k]))
                             {
                                 code_type = CODE_TYPE_keyword;
@@ -1377,7 +1442,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 for(int i = 0; i < node->string_length; ++i)
                 {
                     int length = CalculateCStringLength("watch?v=");
-                    if(StringMatchCaseSensitiveN(node->string+i, "watch?v=", length))
+                    if(CStringMatchCaseSensitiveN(node->string+i, "watch?v=", length))
                     {
                         fprintf(file, "embed/");
                         i += length-1;
@@ -1454,12 +1519,12 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 
                 for(int i = 0; i < file_count; ++i)
                 {
-                    if(StringMatchCaseSensitiveN(files[i].filename, prefix, prefix_length))
+                    if(CStringMatchCaseSensitiveN(files[i].filename, prefix, prefix_length))
                     {
                         char *path = files[i].html_output_path;
                         for(int j = 0; path[j]; ++j)
                         {
-                            if(StringMatchCaseSensitiveN(path+j, "generated/", 10))
+                            if(CStringMatchCaseSensitiveN(path+j, "generated/", 10))
                             {
                                 path += 10;
                                 break;
@@ -1628,19 +1693,19 @@ main(int argument_count, char **arguments)
     {
         
         // NOTE(rjf): Non-input arguments (just flags).
-        if(StringMatchCaseInsensitive(arguments[i], "--html"))
+        if(CStringMatchCaseInsensitive(arguments[i], "--html"))
         {
             Log("Outputting to HTML.");
             output_flags |= OUTPUT_HTML;
             arguments[i] = 0;
         }
-        else if(StringMatchCaseInsensitive(arguments[i], "--markdown"))
+        else if(CStringMatchCaseInsensitive(arguments[i], "--markdown"))
         {
             Log("Outputting to markdown.");
             output_flags |= OUTPUT_MARKDOWN;
             arguments[i] = 0;
         }
-        else if(StringMatchCaseInsensitive(arguments[i], "--bbcode"))
+        else if(CStringMatchCaseInsensitive(arguments[i], "--bbcode"))
         {
             Log("Outputting to BBcode.");
             output_flags |= OUTPUT_BBCODE;
@@ -1650,7 +1715,7 @@ main(int argument_count, char **arguments)
         // NOTE(rjf): Arguments with input data (not just flags).
         else if(argument_count > i+1)
         {
-            if(StringMatchCaseInsensitive(arguments[i], "--html_header"))
+            if(CStringMatchCaseInsensitive(arguments[i], "--html_header"))
             {
                 html_header_path = arguments[i+1];
                 Log("HTML header path set as \"%s\".", html_header_path);
@@ -1658,7 +1723,7 @@ main(int argument_count, char **arguments)
                 arguments[i+1] = 0;
                 ++i;
             }
-            else if(StringMatchCaseInsensitive(arguments[i], "--html_footer"))
+            else if(CStringMatchCaseInsensitive(arguments[i], "--html_footer"))
             {
                 html_footer_path = arguments[i+1];
                 Log("HTML footer path set as \"%s\".", html_footer_path);
