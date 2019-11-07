@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="author" content="Ryan Fleury">
+<title>Automatic Generic Serialization Code Generation | Ryan Fleury</title>
+<meta property="og:title" content="Automatic Generic Serialization Code Generation">
+<meta name="twitter:title" content="Automatic Generic Serialization Code Generation">
+<meta name="description" content="An outline of my approach to automatic generic serialization code generation in C.">
+<meta property="og:description" content="An outline of my approach to automatic generic serialization code generation in C.">
+<meta name="twitter:description" content="View the album on Flickr.">
+<link rel="canonical" href="https://ryanfleury.net/blog_automatic_generic_serialization_code_generation">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ryanfleury.net/blog_automatic_generic_serialization_code_generation">
+<meta property="og:site_name" content="Ryan Fleury">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@ryanjfleury">
+<link rel="stylesheet" type="text/css" href="data/styles.css">
+</head>
+<body>
+<div class="header">
+    <div class="header_title">    
+        <a href="projects.html">Ryan Fleury</a>
+    </div>
+    <div class="header_links">
+        <a href="projects.html" class="header_link">Projects</a>
+        <a href="blog.html" class="header_link">Blog</a>
+        <a href="about.html" class="header_link">About</a>
+        <a href="contact.html" class="header_link">Contact</a>
+    </div>
+</div>
+<div class="separator">
+</div><div class="page_content">
+<div class="standalone_link_container"><a class="link" href="blog.html">← Back to Blog</a></div><h1>Automatic Generic Serialization Code Generation</h1>
+<h2>6 November 2019</h2>
+<p>State exists at several lifetimes in software. We can have information that lasts only for a function call, over a frame, or throughout the entire program runtime. All memory for the mentioned lifetimes is normally stored in runtime memory; that is, in a stick of RAM (which is mirrored by CPU caches) while the program runs. There's one lifetime category that I omitted, though, and that's the <i>permanent</i> lifetime. And really, I don't just mean <i>permanent</i>, I mean <i>permanent permanent</i>; that is, it will always stick around, even between runtimes. </p><p>This is all the stuff that applications store to disk; the program's configuration, for instance, or a player's save state (in a game scenario). The program might initialize that data with some default state, or read it from a file on disk if one is available (or something like that).</p><p>Let's talk about what this looks like in our code. We might have a player in our game, and maybe that player has some state, like health, position in the world, and inventory.</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">struct</span>
+{
+    <span class="code_text" style="color: #f4b642;">float</span> health;
+    v2 position;
+    ItemType inventory[<span class="code_text" style="color: #82c4e5;">5</span>];
+}
+Player;
+</pre></div><p>Great, so we've got our <span class="monospace">Player</span> struct, and now we want to save our player state to disk whenever the application closes, so that we can load it back up the next time the program is run. This might look something like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">void</span> WritePlayerStateToDisk(File *file, Player *player)
+{
+    WriteToFile(file, &amp;player-&gt;health, <span class="code_text" style="color: #f4b642;">sizeof</span>(health));
+    WriteToFile(file, &amp;player-&gt;position.x, <span class="code_text" style="color: #f4b642;">sizeof</span>(player-&gt;position.x));
+    WriteToFile(file, &amp;player-&gt;position.y, <span class="code_text" style="color: #f4b642;">sizeof</span>(player-&gt;position.y));
+
+    <span class="code_text" style="color: #f4b642;">for</span>(<span class="code_text" style="color: #f4b642;">int</span> i = <span class="code_text" style="color: #82c4e5;">0</span>; i &lt; <span class="code_text" style="color: #f4b642;">sizeof</span>(player-&gt;inventory)/<span class="code_text" style="color: #f4b642;">sizeof</span>(player-&gt;inventory[<span class="code_text" style="color: #82c4e5;">0</span>]); ++i)
+    {
+        i32 item_type = (i32)player-&gt;inventory[i];
+	   WriteToFile(file, &amp;item_type, <span class="code_text" style="color: #f4b642;">sizeof</span>(item_type));
+    }
+}
+</pre></div><p>Great! Now, whenever we want to write some player state to disk, we just call <span class="monospace">WritePlayerStateToDisk(file, player)</span> with some <span class="monospace">file</span> and <span class="monospace">player</span>. We can write an equivalent deserialization function called <span class="monospace">ReadPlayerStateFromDisk</span> (or something along those lines). It'll look very similar to the serialization function, just with data going in the opposite direction from the file.</p><hr><br>
+<h2>Duplication of Information</h2>
+<p>We have a problem, though: We've <i>duplicated</i> the information that comprises the <span class="monospace">Player</span> structure. In other words, every time we update the <span class="monospace">Player</span> struct, we must also update (or at least think about updating) the serialization and deserialization functions. Maybe this is fine... for now. Imagine, though, a very large <span class="monospace">Player</span> struct with several members, and several procedures that perform this sort of duplication. We might have a printing function, a user-interface function, deserialization and serialization functions, and potentially many more. This becomes unmaintainable very quickly.</p><p>Lucky for us, this is precisely the reason why I wrote <a class="link" href="data_desk.html">Data Desk</a>; it's a tool that allows us to define structures (amongst other things), and then write some code to introspect upon it, primarily intended for code generation. This means we can, for instance, loop through the members of our structure at <i>compile time</i>, generate our printing code, serialization code, user-interface code, and anything else we need.</p><p>If you're not familiar with the syntax for Data Desk, it looks like this (semantically identical to C, but slightly different syntax):</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">struct</span> Player
+{
+    health    : <span class="code_text" style="color: #f4b642;">float</span>;
+    position  : v2;
+    inventory : ItemType[<span class="code_text" style="color: #82c4e5;">5</span>];
+}
+</pre></div><p>In Data Desk, we can also tag things like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #d82312;">@Printable
+</span><span class="code_text" style="color: #f4b642;">struct</span> Foo
+{
+    val_1 : <span class="code_text" style="color: #f4b642;">float</span>;
+    val_2 : <span class="code_text" style="color: #f4b642;">float</span>;
+    <span class="code_text" style="color: #d82312;">@DoNotPrint
+</span>        val_3 : *<span class="code_text" style="color: #f4b642;">void</span>;
+}
+</pre></div><p>You might be asking, "Ryan, sounds cool and everything, but how do we work with Data Desk?". <i>Great</i> question, anonymous reader! Data Desk is just a generic parser for a data specification format, but it allows us to plug in custom code that runs for certain parsed structures. For instance, we might want to get called back for every structure that is parsed in our files, so that we can loop through the members of that structure. Data Desk allows us to write a callback for that, which looks like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// This just specifies a package of information for parsed abstract syntax trees</span>
+<span class="code_text" style="color: #8cba53;">// from Data Desk. It contains the actual AST, but also some transformed names of</span>
+<span class="code_text" style="color: #8cba53;">// the node (for convenience).</span>
+<span class="code_text" style="color: #f4b642;">typedef</span> <span class="code_text" style="color: #f4b642;">struct</span> DataDeskParsedNode DataDeskParsedNode;
+<span class="code_text" style="color: #f4b642;">typedef</span> DataDeskParsedNode DataDeskStruct;
+<span class="code_text" style="color: #f4b642;">struct</span> DataDeskParsedNode
+{
+    <span class="code_text" style="color: #f4b642;">char</span> *name;
+    <span class="code_text" style="color: #f4b642;">char</span> *name_lowercase_with_underscores;
+    <span class="code_text" style="color: #f4b642;">char</span> *name_uppercase_with_underscores;
+    <span class="code_text" style="color: #f4b642;">char</span> *name_lower_camel_case;
+    <span class="code_text" style="color: #f4b642;">char</span> *name_upper_camel_case;
+    <span class="code_text" style="color: #f4b642;">char</span> *name_with_spaces;
+    DataDeskASTNode *root;
+};
+
+<span class="code_text" style="color: #8cba53;">// Our callback is passed the structure, and the filename from which it was parsed.</span>
+<span class="code_text" style="color: #f4b642;">void</span> DataDeskCustomStructCallback(DataDeskStruct parsed_struct, <span class="code_text" style="color: #f4b642;">char</span> *filename)
+{
+    <span class="code_text" style="color: #8cba53;">// Custom introspection code goes here.</span>
+}
+</pre></div><p>So, now, we can just loop through the structure members, and generate some serialization/deserialization code (among other things, but we're focusing on that in this post).</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">void</span> GenerateWriteToDiskCode(FILE *file, DataDeskParsedStruct parsed_struct)
+{
+    <span class="code_text" style="color: #8cba53;">// Print out function header and stuff.</span>
+    fprintf(file, <span class="code_text" style="color: #82c4e5;">"void Write%sToDisk(File *file, %s *obj)\n{\n"</span>, parsed_struct.name, parsed_struct.name);
+    
+    <span class="code_text" style="color: #8cba53;">// We can look at "data_desk.h" to directly see the DataDeskASTNode structure definition.</span>
+    <span class="code_text" style="color: #f4b642;">for</span>(DataDeskASTNode *member = parsed_struct.root-&gt;struct_declaration.first_member;
+        member != <span class="code_text" style="color: #82c4e5;">0</span>; member = member-&gt;next)
+    {
+        
+        <span class="code_text" style="color: #8cba53;">// Character buffers. Type of char with some array size. Just handles</span>
+        <span class="code_text" style="color: #8cba53;">// 1-dimensional arrays (for simplicity)</span>
+        <span class="code_text" style="color: #f4b642;">if</span>(DataDeskStructMemberIsType(member, <span class="code_text" style="color: #82c4e5;">"char"</span>) &amp;&amp; member-&gt;declaration.type-&gt;type_usage.first_array_size_expression)
+        {
+            fprintf(file, <span class="code_text" style="color: #82c4e5;">"WriteToFile(file, obj-&gt;%s, sizeof(obj-&gt;%s));\n"</span>, member-&gt;string, member-&gt;string);
+        }
+    
+        <span class="code_text" style="color: #8cba53;">// ...</span>
+        <span class="code_text" style="color: #8cba53;">// Handle other types here</span>
+        <span class="code_text" style="color: #8cba53;">// ...</span>
+    
+        <span class="code_text" style="color: #8cba53;">// Just a common fallback pattern for 'atomic' types, like int or float.</span>
+        <span class="code_text" style="color: #f4b642;">else</span> <span class="code_text" style="color: #f4b642;">if</span>(DataDeskStructMemberIsType(member, <span class="code_text" style="color: #82c4e5;">"int"</span>)  || DataDeskStructMemberIsType(member, <span class="code_text" style="color: #82c4e5;">"float"</span>) ||
+                DataDeskStructMemberIsType(member, <span class="code_text" style="color: #82c4e5;">"bool"</span>) || DataDeskStructMemberIsType(member, <span class="code_text" style="color: #82c4e5;">"char"</span>))
+        {
+            fprintf(file, <span class="code_text" style="color: #82c4e5;">"WriteToFile(file, &amp;obj-&gt;%s, sizeof(obj-&gt;%s));\n"</span>, member-&gt;string, member-&gt;string);
+        }
+    
+        <span class="code_text" style="color: #f4b642;">else</span>
+        {
+            <span class="code_text" style="color: #8cba53;">// Unsupported member, we don't know how to serialize this thing.</span>
+        }
+    }
+    
+    fprintf(file, <span class="code_text" style="color: #82c4e5;">"}\n\n"</span>);
+}
+</pre></div><p>We can do the same thing for deserialization (you can even generalize the code-generation function to be for either reading to <i>or</i> reading from disk), and then we're done. We'll actually get the same exact code that we <i>would've</i> written manually, except now, the correct code is completely generated from our structure definition, and we can update the <span class="monospace">Player</span> structure without ever having to worry about the additional mental overhead of more functions to maintain.</p><hr><br>
+<h2>Versioning</h2>
+<p>Some more development hours later, and... <i>Woo!</i> We ship the early access version of the game! The players are loving it! Top 10 game of <span class="monospace"><insert current year></span>! We did it! The players love the game <i>so</i> much, they're suggesting lots of new features to add and changes to make. One thing they suggested, for example, was to <i>make the game three-dimensional</i>! That's crazy, good thing we've been studying 3D rendering math and techniques a lot in the meantime! So, we spend some time developing our <i>kick-ass</i> 3D physically-based renderer and everything is looking crazy awesome. Let's just make this quick change to the player structure and finish up our work...</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">struct</span> Player
+{
+    health    : <span class="code_text" style="color: #f4b642;">float</span>;
+    position  : v3; <span class="code_text" style="color: #8cba53;">// Changed from position : v2;</span>
+    inventory : ItemType[<span class="code_text" style="color: #82c4e5;">5</span>];
+}
+</pre></div><p>Great! Everything is working perfectly. Let's go ahead and push this build to the users!</p><p><i>(A few hours later...)</i></p><p>We screwed <i>big time</i>. Everybody's save state won't load, because their existing files on disk were storing <i>two floats</i> for the position, not <i>three</i> (which is what the new generated code expects). We're getting review-bombed on Steam. The country... no, the <i>entire world</i>... is, more-or-less, falling apart, and it's all our fault. We need to come up with a solution <i>fast</i>, before civilization collapses.</p><p>So, what would we do in the <i>manual case</i>? We can't just run a script and update all of our files, for instance, because <i>we don't own these files</i>, they're on <i>user machines</i> (you can imagine an equivalent case where these old-format files are on artist machines or wherever else). Updating them is out of the question. A common approach is to introduce a function each time we introduce a new file version, that effectively can <i>transform</i> the previous version's file format to the newer version's file format. So we have a procedure that updates from version 1 to version 2, version 2 to version 3, and so on. If <span class="monospace">n</span> is the number of file format versions, we're looking at <span class="monospace">n</span> functions we have to write <i>total</i>, but only <span class="monospace">1</span> function for each new version, which is constant with respect to the total number of versions. This is probably the best <i>manual</i> approach, because even though we have to do the manual labor of mapping the previous version to the next version, we can keep doing this for 10s, 100s, 1000s of versions. This is, at least, <i>way</i> better than the case where we try to map every existing version to the newest version, which would be <span class="monospace">n^2 / 2</span> functions we need to write. Even for 10 versions, that introduces a <i>lot</i> of code, so let's forget that possibility right now.</p><p>Is there some way we can do better maintainability-wise? The answer is <i>yes</i>, actually, and we can do it with compile-time introspection again.</p><p>What happens if we think of structures of different versions as having <i>mappings</i> between one another? That is, what is the relationship between the <i>old</i> format's data, and the <i>new</i> format's data? Well, it might look something like this:</p><div class="image_container"><img class="image" src="struct_version_mapping.png"></div>
+<p>This pretty succinctly documents the changes from one version to another. What would this look like inside of our Data Desk file? Maybe something like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #d82312;">@Version(0)
+</span><span class="code_text" style="color: #f4b642;">struct</span> Player_Version0
+{
+    health    : <span class="code_text" style="color: #f4b642;">float</span>;
+    position  : v2;
+    inventory : ItemType[<span class="code_text" style="color: #82c4e5;">5</span>];
+}
+
+<span class="code_text" style="color: #d82312;">@Version(1) </span><span class="code_text" style="color: #d82312;">@MapFrom(Player_Version0)
+</span><span class="code_text" style="color: #f4b642;">struct</span> Player
+{
+    <span class="code_text" style="color: #d82312;">@MapFrom(health)
+</span>        health    : <span class="code_text" style="color: #f4b642;">float</span>;
+
+    <span class="code_text" style="color: #8cba53;">// We'll map the 3D position from the 2D position coordinates, using the</span>
+    <span class="code_text" style="color: #8cba53;">// 2D X/Y coordinates as the X/Z coordinates, since we're making Y the up/down</span>
+    <span class="code_text" style="color: #8cba53;">// axis. We'll just initialize the Y coordinate to 0 if we find an old-save,</span>
+    <span class="code_text" style="color: #8cba53;">// maybe because our physics system will handle finding an acceptable position</span>
+    <span class="code_text" style="color: #8cba53;">// for a position in that case.</span>
+    <span class="code_text" style="color: #d82312;">@MapFrom(v3(position.x, </span><span class="code_text" style="color: #82c4e5;">0</span>, position.y))
+        position  : v3;
+
+    <span class="code_text" style="color: #d82312;">@MapFrom(inventory)
+</span>        inventory : ItemType[<span class="code_text" style="color: #82c4e5;">5</span>];
+}
+</pre></div><p>So now, we've "codified" our struct version mapping relationships. Now, we just need some Data Desk code to generate the proper code to map from an <i>old version</i> to a <i>new version</i>. And, really, we know how to load in the old version, <i>we've already done it</i> within our custom Data Desk code:</p><div class="code"><pre>
+GenerateWriteToDiskCode(file, old_version_structure);
+</pre></div><p>So now, if we want to generate some code for <i>loading in an old version</i>, and <i>mapping to a new one</i>, we might start with something like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// Imagine we have some DataDeskParsedStruct parsed_struct and some FILE *file that we're using.</span>
+DataDeskASTNode *version_tag = DataDeskGetNodeTag(parsed_struct.root, <span class="code_text" style="color: #82c4e5;">"Version"</span>);
+DataDeskASTNode *version_number_node = DataDeskGetTagParameter(version_tag, <span class="code_text" style="color: #82c4e5;">0</span>);
+i32 current_version_number = DataDeskInterpretNumericExpressionAsInteger(version_number_node);
+
+<span class="code_text" style="color: #8cba53;">// Print out function header and stuff.</span>
+<span class="code_text" style="color: #8cba53;">// NOTE(rjf): Notice I took this *out* of the code-generation function, because I don't actually</span>
+<span class="code_text" style="color: #8cba53;">// want this functionality duplicated here (I want to be able to generate read/write code without</span>
+<span class="code_text" style="color: #8cba53;">// needing to wrap it in a function call, so I'll just move that concept to the call-site).</span>
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"void Read%sFromDisk(File *file, %s *obj)\n{\n"</span>, parsed_struct.name, parsed_struct.name);
+
+<span class="code_text" style="color: #8cba53;">// We didn't actually write code originally to serialize versions in our hypothetical scenario,</span>
+<span class="code_text" style="color: #8cba53;">// so since we don't have version information in the player save state stuff already, we'll use</span>
+<span class="code_text" style="color: #8cba53;">// a "magic byte sequence" that's unique and not found in *actual* old serialized data. If we find</span>
+<span class="code_text" style="color: #8cba53;">// the magic bytes, we'll read in a version. If we don't, we'll assume version 0.</span>
+
+<span class="code_text" style="color: #8cba53;">// We can use this, because the first serialized data is the player's health which let's say is</span>
+<span class="code_text" style="color: #8cba53;">// in [0.f, 1.f], and therefore shouldn't ever be negative. So if we just have the top bit set in</span>
+<span class="code_text" style="color: #8cba53;">// the most significant byte, that'll translate to a negative float, which we shouldn't ever have,</span>
+<span class="code_text" style="color: #8cba53;">// so we can use that information to determine whether we're reading in a newer version or not.</span>
+
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"unsigned char magic_bytes[] = { 0xff, 0xff, 0xff, 0xff };\n"</span>);
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"unsigned char first_four_bytes[4] = {0};\n"</span>);
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"i32 expected_version_number = %i;\n"</span>, current_version_number);
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"i32 actual_version_number = 0;\n"</span>);
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"ReadFromFile(file, first_four_bytes, sizeof(first_four_bytes));\n"</span>);
+
+<span class="code_text" style="color: #8cba53;">// The memory matches, so we've read in our magic byte sequence. Read in a version number.</span>
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"if(MemoryMatch(first_four_bytes, magic_bytes))\n{\n"</span>);
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"ReadFromFile(file, &amp;actual_version_number, sizeof(actual_version_number));\n"</span>)
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"}\n\n"</span>);
+<span class="code_text" style="color: #8cba53;">// If the memory does not match, we just keep the actual version at 0.</span>
+
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"}\n\n"</span>);
+</pre></div><p>Observe that I'm exploiting our circumstances a little bit. We didn't serialize a version number for the old player data, but we <i>know</i> that the old player data <i>started</i> with the player's <i>health</i>, which is a float that is within the range [0.f, 1.f]. Notice that all numbers in this range are non-negative, and therefore will not have the sign bit set. We can take advantage of this by serializing a "magic-byte-sequence" in newer versions. In deserialization we <i>expect</i> a few bytes to arrive first. If we find those bytes, we'll treat the file format as a newer one (one where we've serialized the version number). If we don't, we'll treat the file format as version 0. Because in all valid player states we've ever serialized we have to be positive, we know that the sign bit in the first float we read <i>must</i> be 0, meaning that if we choose our magic-byte-sequence cleverly such that what <i>would</i> be the sign bit of a 32-bit floating point value is <i>nonzero</i>, then we can instantly know whether something is version 0 or a later version (even though we didn't serialize the version information in the first version) by checking that sign bit (which we'll just encode with our magic-byte-sequence).</p><p>So, now, we have some generated code that will figure out what version we're reading in, and that code knows what the <i>expected, current</i> version of data is. So, more-or-less, we need to generate code to read in the format of the serialized version, then <i>map</i> from the <i>serialized version forward</i> until we reach the <i>expected version</i>. We can continue with our implementation, then, like this:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// We'd generate code for every possible "actual version" (each version we might find on disk),</span>
+<span class="code_text" style="color: #8cba53;">// so we'll get that number and corresponding structure definition here.</span>
+i32 actual_version = ...;
+DataDeskParsedStruct *version_struct = ...;
+
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"%s version%i = {0};\n"</span>, version_struct-&gt;name, actual_version);
+GenerateReadFromDiskCode(file, version_struct, <span class="code_text" style="color: #82c4e5;">"version%i"</span>, actual_version);
+
+i32 version_number = actual_version;
+DataDeskParsedStruct *last_map_struct = version_struct;
+<span class="code_text" style="color: #f4b642;">for</span>(DataDeskParsedStruct *map_struct = GetNextVersionStruct(version_struct);
+    map_struct != <span class="code_text" style="color: #82c4e5;">0</span> &amp;&amp; version_number &lt;= current_version_number;
+    map_struct = GetNextVersionStruct(map_struct))
+{
+    fprintf(file, <span class="code_text" style="color: #82c4e5;">"%s version%i = {0};\n"</span>, map_struct-&gt;name, version_number);
+    <span class="code_text" style="color: #8cba53;">// I'm omitting this for simplicity, but you can imagine this would be something like:</span>
+    <span class="code_text" style="color: #8cba53;">// Loop through all the structure members in the new version, and find the corresponding</span>
+    <span class="code_text" style="color: #8cba53;">// "MapFrom" tags, and just transpile those expressions to C to generate code to map</span>
+    <span class="code_text" style="color: #8cba53;">// the new version of a field to something depending on the *old* structure.</span>
+    GenerateVersionMappingCode(map_struct, last_map_struct, <span class="code_text" style="color: #82c4e5;">"version%i"</span>, <span class="code_text" style="color: #82c4e5;">"version%i"</span>, version_number, version_number-<span class="code_text" style="color: #82c4e5;">1</span>);
+    ++version_number;
+    last_map_struct = map_struct;
+}
+
+<span class="code_text" style="color: #8cba53;">// Complete the function by writing the fully mapped up-to-date version into the pointer</span>
+<span class="code_text" style="color: #8cba53;">// passed into the function "obj".</span>
+fprintf(file, <span class="code_text" style="color: #82c4e5;">"*obj = version%i;\n"</span>, current_version_number);
+</pre></div><p>This will generate our code for the "version chain" maintenance case, where we have <span class="monospace">n</span> conversion procedures for <span class="monospace">n</span> versions. This also, actually, <i>sort of</i> performs automated generation of the <span class="monospace">n^2 / 2</span> conversion procedures for <span class="monospace">n</span> versions, though the transformations are unoptimized and therefore might contain a lot of redundant work. I've personally found in most cases, however, that usually we don't <i>really</i> need a fast-path from super old versions to super new versions, so this approach won't really hurt us there. If you did want a fast-path between old versions and new versions, though, note that Data Desk is already providing the custom code with abstract-syntax-trees of mapping expressions, and there is an entire space of work that is built around the problem "given this unoptimized abstract-syntax-tree, reduce redundant work and produce an optimized one." This is precisely the kind of thing that would need to happen to reduce redundant steps in a transformation from version <span class="monospace">n</span> to version <span class="monospace">m</span> (where <span class="monospace">n</span> is much less than <span class="monospace">m</span>). As I said, though, that problem has not come up very often for me personally, and it certainly isn't necessary for our problem of just needing to map all existing saved player states to an immediately following version.</p></div>
+<div class="separator reverse"></div>
+<div class="footer">
+    <a class="link" href="https://github.com/ryanfleury">GitHub</a>
+    <a class="link" href="https://youtube.com/delix">YouTube</a>
+    <a class="link" href="https://twitter.com/ryanjfleury">Twitter</a>
+</div></body>
+</html>

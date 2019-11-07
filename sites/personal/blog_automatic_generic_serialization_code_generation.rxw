@@ -1,0 +1,288 @@
+@Link {"← Back to Blog", "blog.html"}
+
+@Title {Automatic Generic Serialization Code Generation}
+@Description {An outline of my approach to automatic generic serialization code generation in C.}
+@Date {2019/11/6}
+
+State exists at several lifetimes in software. We can have information that lasts only for a function call, over a frame, or throughout the entire program runtime. All memory for the mentioned lifetimes is normally stored in runtime memory; that is, in a stick of RAM (which is mirrored by CPU caches) while the program runs. There's one lifetime category that I omitted, though, and that's the *permanent* lifetime. And really, I don't just mean *permanent*, I mean *permanent permanent*; that is, it will always stick around, even between runtimes. 
+
+This is all the stuff that applications store to disk; the program's configuration, for instance, or a player's save state (in a game scenario). The program might initialize that data with some default state, or read it from a file on disk if one is available (or something like that).
+
+Let's talk about what this looks like in our code. We might have a player in our game, and maybe that player has some state, like health, position in the world, and inventory.
+
+@Code
+{
+typedef struct
+{
+    float health;
+    v2 position;
+    ItemType inventory[5];
+}
+Player;
+}
+
+Great, so we've got our `Player` struct, and now we want to save our player state to disk whenever the application closes, so that we can load it back up the next time the program is run. This might look something like this:
+
+@Code
+{
+void WritePlayerStateToDisk(File *file, Player *player)
+{
+    WriteToFile(file, &player->health, sizeof(health));
+    WriteToFile(file, &player->position.x, sizeof(player->position.x));
+    WriteToFile(file, &player->position.y, sizeof(player->position.y));
+
+    for(int i = 0; i < sizeof(player->inventory)/sizeof(player->inventory[0]); ++i)
+    {
+        i32 item_type = (i32)player->inventory[i];
+	   WriteToFile(file, &item_type, sizeof(item_type));
+    }
+}
+}
+
+Great! Now, whenever we want to write some player state to disk, we just call `WritePlayerStateToDisk(file, player)` with some `file` and `player`. We can write an equivalent deserialization function called `ReadPlayerStateFromDisk` (or something along those lines). It'll look very similar to the serialization function, just with data going in the opposite direction from the file.
+
+@SubTitle {Duplication of Information}
+
+We have a problem, though: We've *duplicated* the information that comprises the `Player` structure. In other words, every time we update the `Player` struct, we must also update (or at least think about updating) the serialization and deserialization functions. Maybe this is fine... for now. Imagine, though, a very large `Player` struct with several members, and several procedures that perform this sort of duplication. We might have a printing function, a user-interface function, deserialization and serialization functions, and potentially many more. This becomes unmaintainable very quickly.
+
+Lucky for us, this is precisely the reason why I wrote @Link {"Data Desk", "data_desk.html"}; it's a tool that allows us to define structures (amongst other things), and then write some code to introspect upon it, primarily intended for code generation. This means we can, for instance, loop through the members of our structure at *compile time*, generate our printing code, serialization code, user-interface code, and anything else we need.
+
+If you're not familiar with the syntax for Data Desk, it looks like this (semantically identical to C, but slightly different syntax):
+
+@Code
+{
+struct Player
+{
+    health    : float;
+    position  : v2;
+    inventory : ItemType[5];
+}
+}
+
+In Data Desk, we can also tag things like this:
+
+@Code
+{
+@Printable
+struct Foo
+{
+    val_1 : float;
+    val_2 : float;
+    @DoNotPrint
+        val_3 : *void;
+}
+}
+
+You might be asking, "Ryan, sounds cool and everything, but how do we work with Data Desk?". *Great* question, anonymous reader! Data Desk is just a generic parser for a data specification format, but it allows us to plug in custom code that runs for certain parsed structures. For instance, we might want to get called back for every structure that is parsed in our files, so that we can loop through the members of that structure. Data Desk allows us to write a callback for that, which looks like this:
+
+@Code
+{
+// This just specifies a package of information for parsed abstract syntax trees
+// from Data Desk. It contains the actual AST, but also some transformed names of
+// the node (for convenience).
+typedef struct DataDeskParsedNode DataDeskParsedNode;
+typedef DataDeskParsedNode DataDeskStruct;
+struct DataDeskParsedNode
+{
+    char *name;
+    char *name_lowercase_with_underscores;
+    char *name_uppercase_with_underscores;
+    char *name_lower_camel_case;
+    char *name_upper_camel_case;
+    char *name_with_spaces;
+    DataDeskASTNode *root;
+};
+
+// Our callback is passed the structure, and the filename from which it was parsed.
+void DataDeskCustomStructCallback(DataDeskStruct parsed_struct, char *filename)
+{
+    // Custom introspection code goes here.
+}
+}
+
+So, now, we can just loop through the structure members, and generate some serialization/deserialization code (among other things, but we're focusing on that in this post).
+
+@Code
+{
+void GenerateWriteToDiskCode(FILE *file, DataDeskParsedStruct parsed_struct)
+{
+    // Print out function header and stuff.
+    fprintf(file, "void Write%sToDisk(File *file, %s *obj)\n{\n", parsed_struct.name, parsed_struct.name);
+    
+    // We can look at "data_desk.h" to directly see the DataDeskASTNode structure definition.
+    for(DataDeskASTNode *member = parsed_struct.root->struct_declaration.first_member;
+        member != 0; member = member->next)
+    {
+        
+        // Character buffers. Type of char with some array size. Just handles
+        // 1-dimensional arrays (for simplicity)
+        if(DataDeskStructMemberIsType(member, "char") && member->declaration.type->type_usage.first_array_size_expression)
+        {
+            fprintf(file, "WriteToFile(file, obj->%s, sizeof(obj->%s));\n", member->string, member->string);
+        }
+    
+        // ...
+        // Handle other types here
+        // ...
+    
+        // Just a common fallback pattern for 'atomic' types, like int or float.
+        else if(DataDeskStructMemberIsType(member, "int")  || DataDeskStructMemberIsType(member, "float") ||
+                DataDeskStructMemberIsType(member, "bool") || DataDeskStructMemberIsType(member, "char"))
+        {
+            fprintf(file, "WriteToFile(file, &obj->%s, sizeof(obj->%s));\n", member->string, member->string);
+        }
+    
+        else
+        {
+            // Unsupported member, we don't know how to serialize this thing.
+        }
+    }
+    
+    fprintf(file, "}\n\n");
+}
+}
+
+We can do the same thing for deserialization (you can even generalize the code-generation function to be for either reading to *or* reading from disk), and then we're done. We'll actually get the same exact code that we *would've* written manually, except now, the correct code is completely generated from our structure definition, and we can update the `Player` structure without ever having to worry about the additional mental overhead of more functions to maintain.
+
+@SubTitle {Versioning}
+
+Some more development hours later, and... *Woo!* We ship the early access version of the game! The players are loving it! Top 10 game of `<insert current year>`! We did it! The players love the game *so* much, they're suggesting lots of new features to add and changes to make. One thing they suggested, for example, was to *make the game three-dimensional*! That's crazy, good thing we've been studying 3D rendering math and techniques a lot in the meantime! So, we spend some time developing our *kick-ass* 3D physically-based renderer and everything is looking crazy awesome. Let's just make this quick change to the player structure and finish up our work...
+
+@Code
+{
+struct Player
+{
+    health    : float;
+    position  : v3; // Changed from position : v2;
+    inventory : ItemType[5];
+}
+}
+
+Great! Everything is working perfectly. Let's go ahead and push this build to the users!
+
+*(A few hours later...)*
+
+We screwed *big time*. Everybody's save state won't load, because their existing files on disk were storing *two floats* for the position, not *three* (which is what the new generated code expects). We're getting review-bombed on Steam. The country... no, the *entire world*... is, more-or-less, falling apart, and it's all our fault. We need to come up with a solution *fast*, before civilization collapses.
+
+So, what would we do in the *manual case*? We can't just run a script and update all of our files, for instance, because *we don't own these files*, they're on *user machines* (you can imagine an equivalent case where these old-format files are on artist machines or wherever else). Updating them is out of the question. A common approach is to introduce a function each time we introduce a new file version, that effectively can *transform* the previous version's file format to the newer version's file format. So we have a procedure that updates from version 1 to version 2, version 2 to version 3, and so on. If `n` is the number of file format versions, we're looking at `n` functions we have to write *total*, but only `1` function for each new version, which is constant with respect to the total number of versions. This is probably the best *manual* approach, because even though we have to do the manual labor of mapping the previous version to the next version, we can keep doing this for 10s, 100s, 1000s of versions. This is, at least, *way* better than the case where we try to map every existing version to the newest version, which would be `n^2 / 2` functions we need to write. Even for 10 versions, that introduces a *lot* of code, so let's forget that possibility right now.
+
+Is there some way we can do better maintainability-wise? The answer is *yes*, actually, and we can do it with compile-time introspection again.
+
+What happens if we think of structures of different versions as having *mappings* between one another? That is, what is the relationship between the *old* format's data, and the *new* format's data? Well, it might look something like this:
+
+@Image {"struct_version_mapping.png"}
+
+This pretty succinctly documents the changes from one version to another. What would this look like inside of our Data Desk file? Maybe something like this:
+
+@Code
+{
+@Version(0)
+struct Player_Version0
+{
+    health    : float;
+    position  : v2;
+    inventory : ItemType[5];
+}
+
+@Version(1) @MapFrom(Player_Version0)
+struct Player
+{
+    @MapFrom(health)
+        health    : float;
+
+    // We'll map the 3D position from the 2D position coordinates, using the
+    // 2D X/Y coordinates as the X/Z coordinates, since we're making Y the up/down
+    // axis. We'll just initialize the Y coordinate to 0 if we find an old-save,
+    // maybe because our physics system will handle finding an acceptable position
+    // for a position in that case.
+    @MapFrom(v3(position.x, 0, position.y))
+        position  : v3;
+
+    @MapFrom(inventory)
+        inventory : ItemType[5];
+}
+}
+
+So now, we've "codified" our struct version mapping relationships. Now, we just need some Data Desk code to generate the proper code to map from an *old version* to a *new version*. And, really, we know how to load in the old version, *we've already done it* within our custom Data Desk code:
+
+@Code
+{
+GenerateWriteToDiskCode(file, old_version_structure);
+}
+
+So now, if we want to generate some code for *loading in an old version*, and *mapping to a new one*, we might start with something like this:
+
+@Code
+{
+// Imagine we have some DataDeskParsedStruct parsed_struct and some FILE *file that we're using.
+DataDeskASTNode *version_tag = DataDeskGetNodeTag(parsed_struct.root, "Version");
+DataDeskASTNode *version_number_node = DataDeskGetTagParameter(version_tag, 0);
+i32 current_version_number = DataDeskInterpretNumericExpressionAsInteger(version_number_node);
+
+// Print out function header and stuff.
+// NOTE(rjf): Notice I took this *out* of the code-generation function, because I don't actually
+// want this functionality duplicated here (I want to be able to generate read/write code without
+// needing to wrap it in a function call, so I'll just move that concept to the call-site).
+fprintf(file, "void Read%sFromDisk(File *file, %s *obj)\n{\n", parsed_struct.name, parsed_struct.name);
+
+// We didn't actually write code originally to serialize versions in our hypothetical scenario,
+// so since we don't have version information in the player save state stuff already, we'll use
+// a "magic byte sequence" that's unique and not found in *actual* old serialized data. If we find
+// the magic bytes, we'll read in a version. If we don't, we'll assume version 0.
+
+// We can use this, because the first serialized data is the player's health which let's say is
+// in [0.f, 1.f], and therefore shouldn't ever be negative. So if we just have the top bit set in
+// the most significant byte, that'll translate to a negative float, which we shouldn't ever have,
+// so we can use that information to determine whether we're reading in a newer version or not.
+
+fprintf(file, "unsigned char magic_bytes[] = { 0xff, 0xff, 0xff, 0xff };\n");
+fprintf(file, "unsigned char first_four_bytes[4] = {0};\n");
+fprintf(file, "i32 expected_version_number = %i;\n", current_version_number);
+fprintf(file, "i32 actual_version_number = 0;\n");
+fprintf(file, "ReadFromFile(file, first_four_bytes, sizeof(first_four_bytes));\n");
+
+// The memory matches, so we've read in our magic byte sequence. Read in a version number.
+fprintf(file, "if(MemoryMatch(first_four_bytes, magic_bytes))\n{\n");
+fprintf(file, "ReadFromFile(file, &actual_version_number, sizeof(actual_version_number));\n")
+fprintf(file, "}\n\n");
+// If the memory does not match, we just keep the actual version at 0.
+
+fprintf(file, "}\n\n");
+}
+
+Observe that I'm exploiting our circumstances a little bit. We didn't serialize a version number for the old player data, but we *know* that the old player data *started* with the player's *health*, which is a float that is within the range [0.f, 1.f]. Notice that all numbers in this range are non-negative, and therefore will not have the sign bit set. We can take advantage of this by serializing a "magic-byte-sequence" in newer versions. In deserialization we *expect* a few bytes to arrive first. If we find those bytes, we'll treat the file format as a newer one (one where we've serialized the version number). If we don't, we'll treat the file format as version 0. Because in all valid player states we've ever serialized we have to be positive, we know that the sign bit in the first float we read *must* be 0, meaning that if we choose our magic-byte-sequence cleverly such that what *would* be the sign bit of a 32-bit floating point value is *nonzero*, then we can instantly know whether something is version 0 or a later version (even though we didn't serialize the version information in the first version) by checking that sign bit (which we'll just encode with our magic-byte-sequence).
+
+So, now, we have some generated code that will figure out what version we're reading in, and that code knows what the *expected, current* version of data is. So, more-or-less, we need to generate code to read in the format of the serialized version, then *map* from the *serialized version forward* until we reach the *expected version*. We can continue with our implementation, then, like this:
+
+@Code
+{
+// We'd generate code for every possible "actual version" (each version we might find on disk),
+// so we'll get that number and corresponding structure definition here.
+i32 actual_version = ...;
+DataDeskParsedStruct *version_struct = ...;
+
+fprintf(file, "%s version%i = {0};\n", version_struct->name, actual_version);
+GenerateReadFromDiskCode(file, version_struct, "version%i", actual_version);
+
+i32 version_number = actual_version;
+DataDeskParsedStruct *last_map_struct = version_struct;
+for(DataDeskParsedStruct *map_struct = GetNextVersionStruct(version_struct);
+    map_struct != 0 && version_number <= current_version_number;
+    map_struct = GetNextVersionStruct(map_struct))
+{
+    fprintf(file, "%s version%i = {0};\n", map_struct->name, version_number);
+    // I'm omitting this for simplicity, but you can imagine this would be something like:
+    // Loop through all the structure members in the new version, and find the corresponding
+    // "MapFrom" tags, and just transpile those expressions to C to generate code to map
+    // the new version of a field to something depending on the *old* structure.
+    GenerateVersionMappingCode(map_struct, last_map_struct, "version%i", "version%i", version_number, version_number-1);
+    ++version_number;
+    last_map_struct = map_struct;
+}
+
+// Complete the function by writing the fully mapped up-to-date version into the pointer
+// passed into the function "obj".
+fprintf(file, "*obj = version%i;\n", current_version_number);
+}
+
+This will generate our code for the "version chain" maintenance case, where we have `n` conversion procedures for `n` versions. This also, actually, *sort of* performs automated generation of the `n^2 / 2` conversion procedures for `n` versions, though the transformations are unoptimized and therefore might contain a lot of redundant work. I've personally found in most cases, however, that usually we don't *really* need a fast-path from super old versions to super new versions, so this approach won't really hurt us there. If you did want a fast-path between old versions and new versions, though, note that Data Desk is already providing the custom code with abstract-syntax-trees of mapping expressions, and there is an entire space of work that is built around the problem "given this unoptimized abstract-syntax-tree, reduce redundant work and produce an optimized one." This is precisely the kind of thing that would need to happen to reduce redundant steps in a transformation from version `n` to version `m` (where `n` is much less than `m`). As I said, though, that problem has not come up very often for me personally, and it certainly isn't necessary for our problem of just needing to map all existing saved player states to an immediately following version.
