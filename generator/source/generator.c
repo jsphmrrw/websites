@@ -1723,6 +1723,120 @@ LoadEntireFileAndNullTerminate(char *filename)
     return result;
 }
 
+static void
+FreeFileData(void *data)
+{
+    free(data);
+}
+
+typedef struct KeywordPrefixTreeNode KeywordPrefixTreeNode;
+struct KeywordPrefixTreeNode
+{
+    char *prefix;
+    int prefix_length;
+    char *value;
+    int value_length;
+    KeywordPrefixTreeNode *have_child;
+    KeywordPrefixTreeNode *no_have_child;
+};
+
+void
+InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char *key, int key_length, char *value, int value_length)
+{
+    KeywordPrefixTreeNode **node_target = tree;
+    for(KeywordPrefixTreeNode *node = *tree;;)
+    {
+        int matching_key_characters = 0;
+
+        if(node)
+        {
+            for(int i = 0; i < node->prefix_length && i < key_length; ++i)
+            {
+                if(key[i]  == node->prefix[i])
+                {
+                    ++matching_key_characters;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // NOTE(rjf): We have matching characters, so this is either the node we want, or we want
+            // to allocate a new node on the "have" child.
+            if(matching_key_characters > 0)
+            {
+                if(node->prefix_length <= 1)
+                {
+                    node = node->has_child;
+                    node_target = &node->has_child;
+                }
+                else
+                {
+                    KeywordPrefixTreeNode *new_node = ParseContextAllocateMemory(context, sizeof(*new_node));
+                    new_node->has_child = node;
+                    new_node->no_have_child = 0;
+                    new_node->prefix = key;
+                    new_node->prefix_length = matching_key_characters;
+                    new_node->value = 0;
+                    new_node->value_length = 0;
+                    *node_target = new_node;
+                    node = new_node->no_have_child;
+                    node_target = &new_node->no_have_child;
+                }
+            }
+
+            // NOTE(rjf): We don't have any matching characters, so move to the no-have child.
+            else
+            {
+                node = node->no_have_child;
+                node_target = &node->no_have_child;
+            }
+        }
+        else
+        {
+            KeywordPrefixTreeNode *new_node = ParseContextAllocateMemory(context, sizeof(*new_node));
+            new_node->has_child = 0;
+            new_node->no_have_child = 0;
+            new_node->prefix = key;
+            new_node->prefix_length = key_length;
+            new_node->value = value;
+            new_node->value_length = value_length;
+            *node_target = new_node;
+            break;
+        }
+    }
+}
+
+KeywordPrefixTreeNode *
+GenerateKeywordPrefixTreeFromFile(ParseContext *context, char *filename)
+{
+    KeywordPrefixTreeNode *root = 0;
+
+    char *file - LoadEntireFileAndNullTerminate(filename);
+
+    for(int i = 0; file[i]; ++i)
+    {
+        char *key = 0;
+        int key_length = 0;
+        char *value = 0;
+        int value_length = 0;
+        if(!CharIsSpace(file[i]))
+        {
+            key = file+i+1;
+            for(; key[key_length] != ':'; ++key_length);
+            value = file+i+key_length+1;
+            for(int j = 0; CharIsSpace(file[i+key_length+j]); ++j, ++value);
+            for(; value[value_length] != '\n'; ++value_length);
+            InsertKeywordIntoTree(&root, context, key, key_length, value, value_length);
+        }
+    }
+
+    FreeFileData(file);
+
+    return root;
+}
+
 int
 main(int argument_count, char **arguments)
 {
