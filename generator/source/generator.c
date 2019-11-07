@@ -1808,6 +1808,52 @@ InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char 
     }
 }
 
+int
+GetKeywordValueFromTree(KeywordPrefixTreeNode *tree, char *keyword, int keyword_length, char **value_ptr)
+{
+    int value_length = 0;
+
+    for(KeywordPrefixTreeNode *node = tree; node;)
+    {
+        int matching_key_characters = 0;
+
+        for(int i = 0; i < node->prefix_length && i < key_length; ++i)
+        {
+            if(key[i]  == node->prefix[i])
+            {
+                ++matching_key_characters;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if(matching_key_characters == node->prefix_length)
+        {
+            if(matching_key_characters == keyword_length)
+            {
+                if(value_ptr)
+                {
+                    *value_ptr = node->value;
+                    value_length = node->value_length;
+                    break;
+                }
+            }
+            else
+            {
+                node = node->has_child;
+            }
+        }
+        else
+        {
+            node = node->no_have_child;
+        }
+    }
+
+    return value_length;
+}
+
 KeywordPrefixTreeNode *
 GenerateKeywordPrefixTreeFromFile(ParseContext *context, char *filename)
 {
