@@ -1747,7 +1747,7 @@ InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char 
     for(KeywordPrefixTreeNode *node = *tree;;)
     {
         int matching_key_characters = 0;
-
+        
         if(node)
         {
             for(int i = 0; i < node->prefix_length && i < key_length; ++i)
@@ -1761,20 +1761,20 @@ InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char 
                     break;
                 }
             }
-
+            
             // NOTE(rjf): We have matching characters, so this is either the node we want, or we want
             // to allocate a new node on the "have" child.
             if(matching_key_characters > 0)
             {
                 if(node->prefix_length <= 1)
                 {
-                    node = node->has_child;
-                    node_target = &node->has_child;
+                    node = node->have_child;
+                    node_target = &node->have_child;
                 }
                 else
                 {
                     KeywordPrefixTreeNode *new_node = ParseContextAllocateMemory(context, sizeof(*new_node));
-                    new_node->has_child = node;
+                    new_node->have_child = node;
                     new_node->no_have_child = 0;
                     new_node->prefix = key;
                     new_node->prefix_length = matching_key_characters;
@@ -1785,7 +1785,7 @@ InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char 
                     node_target = &new_node->no_have_child;
                 }
             }
-
+            
             // NOTE(rjf): We don't have any matching characters, so move to the no-have child.
             else
             {
@@ -1796,7 +1796,7 @@ InsertKeywordIntoTree(KeywordPrefixTreeNode **tree, ParseContext *context, char 
         else
         {
             KeywordPrefixTreeNode *new_node = ParseContextAllocateMemory(context, sizeof(*new_node));
-            new_node->has_child = 0;
+            new_node->have_child = 0;
             new_node->no_have_child = 0;
             new_node->prefix = key;
             new_node->prefix_length = key_length;
@@ -1812,14 +1812,14 @@ int
 GetKeywordValueFromTree(KeywordPrefixTreeNode *tree, char *keyword, int keyword_length, char **value_ptr)
 {
     int value_length = 0;
-
+    
     for(KeywordPrefixTreeNode *node = tree; node;)
     {
         int matching_key_characters = 0;
-
-        for(int i = 0; i < node->prefix_length && i < key_length; ++i)
+        
+        for(int i = 0; i < node->prefix_length && i < keyword_length; ++i)
         {
-            if(key[i]  == node->prefix[i])
+            if(keyword[i] == node->prefix[i])
             {
                 ++matching_key_characters;
             }
@@ -1828,7 +1828,7 @@ GetKeywordValueFromTree(KeywordPrefixTreeNode *tree, char *keyword, int keyword_
                 break;
             }
         }
-
+        
         if(matching_key_characters == node->prefix_length)
         {
             if(matching_key_characters == keyword_length)
@@ -1842,7 +1842,7 @@ GetKeywordValueFromTree(KeywordPrefixTreeNode *tree, char *keyword, int keyword_
             }
             else
             {
-                node = node->has_child;
+                node = node->have_child;
             }
         }
         else
@@ -1850,7 +1850,7 @@ GetKeywordValueFromTree(KeywordPrefixTreeNode *tree, char *keyword, int keyword_
             node = node->no_have_child;
         }
     }
-
+    
     return value_length;
 }
 
@@ -1858,9 +1858,9 @@ KeywordPrefixTreeNode *
 GenerateKeywordPrefixTreeFromFile(ParseContext *context, char *filename)
 {
     KeywordPrefixTreeNode *root = 0;
-
-    char *file - LoadEntireFileAndNullTerminate(filename);
-
+    
+    char *file = LoadEntireFileAndNullTerminate(filename);
+    
     for(int i = 0; file[i]; ++i)
     {
         char *key = 0;
@@ -1877,9 +1877,9 @@ GenerateKeywordPrefixTreeFromFile(ParseContext *context, char *filename)
             InsertKeywordIntoTree(&root, context, key, key_length, value, value_length);
         }
     }
-
+    
     FreeFileData(file);
-
+    
     return root;
 }
 
