@@ -374,9 +374,9 @@ GetNextTokenFromBuffer(Tokenizer *tokenizer)
                     }
                 }
             }
-
+            
             ++token.string_length;
-
+            
             break;
         }
         else if(!CharIsSpace(buffer[i]))
@@ -579,7 +579,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             if(TokenMatch(tag, "@PageTitle"))
             {
                 Token title_text = {0};
-
+                
                 if(RequireToken(tokenizer, "{", 0))
                 {
                     if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
@@ -598,7 +598,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     {
                         PushParseError(context, tokenizer, "A page title tag expects {<title text>} to follow.");
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
@@ -609,11 +609,11 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
-
+            
             else if(TokenMatch(tag, "@Title"))
             {
                 Token title_text = {0};
-
+                
                 if(RequireToken(tokenizer, "{", 0))
                 {
                     if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
@@ -632,7 +632,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     {
                         PushParseError(context, tokenizer, "A title tag expects {<title text>} to follow.");
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
@@ -647,7 +647,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             else if(TokenMatch(tag, "@SubTitle"))
             {
                 Token title_text = {0};
-
+                
                 if(RequireToken(tokenizer, "{", 0))
                 {
                     if(RequireTokenType(tokenizer, TOKEN_text, &title_text) ||
@@ -666,7 +666,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     {
                         PushParseError(context, tokenizer, "A sub-title tag expects {<sub-title text>} to follow.");
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
@@ -677,11 +677,11 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     PushParseError(context, tokenizer, "Expected '{'.");
                 }
             }
-
+            
             else if(TokenMatch(tag, "@Description"))
             {
                 Token text = {0};
-
+                
                 if(RequireToken(tokenizer, "{", 0))
                 {
                     if(RequireTokenType(tokenizer, TOKEN_text, &text) ||
@@ -700,7 +700,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     {
                         PushParseError(context, tokenizer, "A description tag expects {<description text>} to follow.");
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
@@ -721,7 +721,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-
+                    
                     if(ParseLink(context, tokenizer, &node->string, &node->string_length))
                     {
                         if(!RequireToken(tokenizer, "}", 0))
@@ -749,7 +749,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-
+                    
                     if(ParseLink(context, tokenizer, &node->string, &node->string_length))
                     {
                         if(!RequireToken(tokenizer, "}", 0))
@@ -825,25 +825,25 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-
+                    
                     if(!ParseTextArgument(context, tokenizer, &node->string, &node->string_length))
                     {
                         PushParseError(context, tokenizer, "A link tag expects {<text>, <link>} to follow.");
                         goto end_link_parse;
                     }
                     SkipToAfterNextComma(tokenizer);
-
+                    
                     if(!ParseLink(context, tokenizer, &node->link.url, &node->link.url_length))
                     {
                         PushParseError(context, tokenizer, "A link tag expects {<text>, <link>} to follow.");
                         goto end_link_parse;
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
                     }
-
+                    
                     end_link_parse:;
                 }
                 else
@@ -861,34 +861,34 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                     node->text_style_flags = text_style_flags;
                     *node_store_target = node;
                     node_store_target = &(*node_store_target)->next;
-
+                    
                     if(!ParseTextArgument(context, tokenizer, &node->feature_button.image_path, &node->feature_button.image_path_length))
                     {
                         PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
                         goto end_feature_button_parse;
                     }
-
+                    
                     SkipToAfterNextComma(tokenizer);
-
+                    
                     if(!ParseLink(context, tokenizer, &node->string, &node->string_length))
                     {
                         PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
                         goto end_feature_button_parse;
                     }
-
+                    
                     SkipToAfterNextComma(tokenizer);
-
+                    
                     if(!ParseLink(context, tokenizer, &node->feature_button.link, &node->feature_button.link_length))
                     {
                         PushParseError(context, tokenizer, "A feature button tag expects {<image>, <text>, <link>} to follow.");
                         goto end_feature_button_parse;
                     }
-
+                    
                     if(!RequireToken(tokenizer, "}", 0))
                     {
                         PushParseError(context, tokenizer, "Missing '}'.");
                     }
-
+                    
                     end_feature_button_parse:;
                 }
                 else
@@ -1067,7 +1067,7 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
         }
         
         token = PeekToken(tokenizer);
-
+        
         if(context->error_stack_size > 0)
         {
             break;
@@ -1581,7 +1581,7 @@ OutputHTMLFromPageNodeTreeToFile(SiteInfo *site_info, ProcessedFile *page, Proce
     fprintf(file, "<head>\n");
     fprintf(file, "<meta charset=\"utf-8\">");
     // NOTE(bvisness): Consider adding mobile-friendly styles and then adding this line
-    // fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    fprintf(file, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
     fprintf(file, "<meta name=\"author\" content=\"%s\">\n", site_info->author);
     fprintf(file, "<title>%s%s%s</title>\n", page->main_title, site_info->main_title ? " | " : "", site_info->main_title ? site_info->main_title : "");
     fprintf(file, "<meta property=\"og:title\" content=\"%s\">\n", page->main_title);
@@ -1644,7 +1644,7 @@ ProcessFile(char *filename, char *file, FileProcessData *process_data, ParseCont
                 break;
             }
         }
-
+        
         // NOTE(rjf): If a PageTitle has not been specified, then try to grab the first title and use it.
         if(processed_file.main_title == 0)
         {

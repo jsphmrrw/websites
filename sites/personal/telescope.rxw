@@ -1,0 +1,20 @@
+@Description {The Telescope Engine is a game engine written from scratch in C.}
+
+@Link {"← Back to Projects", "projects.html"}
+
+@Title {Telescope Engine}
+
+The Telescope Engine began as a collection of modularized technologies that I originally developed for @Link {"The Melodist", "melodist.html"}. I began identifying that a lot of my work could be extracted into game-independent pieces that would serve as a base for my own game projects.
+
+As of now, the engine is being used to develop two projects: @Link {"The Melodist", "melodist.html"} and a game called Arcane, being developed by Thomas Randall.
+
+The engine is written from scratch in C. It features the following pieces so far: A 2D renderer, a 3D renderer with partially physically-based rendering (still early and experimental, it is mostly a side project I toy with when I am not working on my primary game projects), a multithreaded asset system that allows for arbitrary asset types, an immediate-mode graphical user interface system, a developer terminal, a custom scripting language, and custom platform layers.
+
+@SubTitle {Screenshots}
+
+@ThumbnailImage { "data/telescope_screenshot_1.png" }
+@ThumbnailImage { "data/telescope_screenshot_2.png" }
+@ThumbnailImage { "data/telescope_screenshot_3.png" }
+@ThumbnailImage { "data/telescope_screenshot_4.png" }
+@ThumbnailImage { "data/telescope_screenshot_5.png" }
+@ThumbnailImage { "data/telescope_screenshot_6.png" }

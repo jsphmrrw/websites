@@ -4,7 +4,7 @@
 
 @Title {Dungeoneer}
 
-Dungeoneer is a short-term jam project that was made in 48 hours. It is a top-down action and adventure game inspired by *The Legend of Zelda*. It is written in C and depends only on the C runtime and the operating system. It was built using my own custom game engine technologies that are shared with my other projects.
+Dungeoneer is a short-term jam project that was made in 48 hours. It is a top-down action and adventure game inspired by *The Legend of Zelda*. It is written in C and depends only on the C runtime and the operating system. It was built using old engine code I had originally written for @Link {"The Melodist", "melodist.html"}. This later has transformed into the @Link {"Telescope Engine", "telescope.html"}.
 
 The game jam was for a YouTube video collaboration in which four game developers start with the same art and make their own game in their own way. It was meant to provide a look into different game development strategies, the merits of different approaches, and how the results they produce differ.
 
