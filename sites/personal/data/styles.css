@@ -1,5 +1,15 @@
-:root {
-	--highlight-color: rgb(65, 117, 173);
+:root
+{
+	--highlight-color:                #FFAE42;
+    --background-color:               rgb(56, 60, 64);
+    --page-container-color:           rgb(76, 81, 87);
+    --page-container-alternate-color: rgb(99, 117, 128);
+    --default-text-color:             rgb(225, 229, 235);
+    --weak-text-color:                rgb(120, 120, 120);
+    --title-color:                    var(--highlight-color);
+    --sub-title-color:                var(--highlight-color);
+    --content-width:                  45rem;
+    /* NOTE: Need to update size media queries if this changes, because CSS sucks. */
 }
 
 @font-face
@@ -10,8 +20,14 @@
 
 @font-face
 {
+    font-family: 'HeaderLink';
+    src: url('./Share-Regular.ttf') format('truetype');
+}
+
+@font-face
+{
     font-family: 'Title';
-    src: url('./Ubuntu-Medium.ttf') format('truetype');
+    src: url('./PT_Sans-Narrow-Web-Bold.ttf') format('truetype');
 }
 
 @font-face
@@ -35,25 +51,26 @@
 body
 {
     font-family: 'Body';
+    background-color: var(--background-color);
 }
 
 h1
 {
     padding-top: 0em;
-    color: #555555;
-    padding-left: 5%;
-    padding-right: 5%;
+    color: var(--title-color);
+    padding-left: 0;
+    padding-right: 0;
 	padding-bottom: 0.5em;
     font-family: 'Title';
-    text-transform: uppercase;
+    /*text-transform: uppercase;*/
     font-size: 1.5em;
 }
 
 h2
 {
-    color: #888888;
-    padding-left: 5%;
-    padding-right: 5%;
+    color: var(--sub-title-color);
+    padding-left: 0;
+    padding-right: 0;
 	padding-bottom: 1em;
     font-family: 'Title';
     font-size: 1.2em;
@@ -61,18 +78,18 @@ h2
 
 p
 {
-    color: #232323;
+    color: var(--default-text-color);
 	font-size: 1.2em;
     padding-bottom: 1em;
     padding-top: 1em;
-    padding-left: 5%;
-    padding-right: 5%;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 pre
 {
-    padding-left: 5%;
-    padding-right: 5%;
+    padding-left: 0;
+    padding-right: 0;
     font-family: 'Mono';
 }
 
@@ -85,8 +102,8 @@ hr
 	border: none;
 	border-bottom: 1px solid;
 	height: 1px;
-	width: 90%;
-	color: #bbbbbb;
+	width: 50%;
+	color: var(--page-container-color);
 }
 
 ::selection
@@ -117,64 +134,70 @@ hr
 {
 	color: var(--highlight-color);
 	text-decoration: none;
-	margin-left: 5%;
+	margin-left: 0;
 	padding-bottom: 1.5em;
+    font-family: 'HeaderLink';
 }
 
 .lister_link
 {
 	font-size: 1.2em;
-	margin-left: 5%;
+	margin-left: 0;
+    margin-right: 0;
 	margin-top: 1em;
 	padding-left: 1em;
-	padding-right: 1em;
+	padding-right: 0;
 	padding-top: 1em;
 	padding-bottom: 1em;
-	color: #ffffff;
+	color: var(--default-text-color);
 	text-decoration: none;
-	background: #999999;
+	background: var(--page-container-color);
 	border-radius: 2px;
-	width: 86%;
-	display: inline-block;
-	transition: background 0.2s ease;
+	width: calc(100% - 1em);
+	display: block;
+	transition: all 0.2s ease;
+    font-family: 'Header';
 }
 
 .lister_link:hover
 {
-	background: var(--highlight-color);
-	color: #ffffff;
-	transition: background 0.2s ease;
+	background: var(--page-container-alternate-color);
+	transition: all 0.2s ease;
+    transform: translateY(-1.5px);
+    box-shadow: 0em 3px 10px rgba(30, 30, 30, 0.2);
 }
 
 .page_content
 {
-    max-width: 70rem;
+    max-width: var(--content-width);
     margin-left: auto;
     margin-right: auto;
-    background-color: #dfdfdf;
-    padding-top: 3.5em;
+    /*background-color: var(--page-container-color);*/
+    padding-top: 2em;
     padding-bottom: 3em;
 }
 
 .header
 {
-    max-width: 70rem;
-	max-height: 4em;
-	padding-left: 4em;
+    max-width: var(--content-width);
+	max-height: 2em;
+	padding-left: 0em;
     margin-left: auto;
     margin-right: auto;
     margin-top: 2em;
-    padding-top: 3em;
+    padding-top: 0em;
     vertical-align: middle;
+    border-bottom: var(--page-container-color) 1px solid;
 }
 
 .header_title
 {
     font-family: 'Header';
-    font-size: 5vw;
-    color: #555555;
+    font-size: 2.5em;
+    color: var(--highlight-color);
     text-transform: uppercase;
     display: inline-block;
+    text-align: bottom;
 	line-height: 0;
 	padding-bottom: 2em;
 }
@@ -188,22 +211,24 @@ hr
 .header_links
 {
     display: inline-block;
-    margin-top: -3em;
-    vertical-align: middle;
-    padding-left: 2em;
+    margin-top: 0em;
+    vertical-align: bottom;
+    padding-left: 4em;
+    text-align: right;
+    float: right;
 }
 
 .header_link
 {
 	vertical-align: middle;
-    font-family: 'Header';
+    font-family: 'HeaderLink';
     font-size: 1.2em;
-    color: #555555;
+    color: var(--highlight-color);
     text-decoration: none;
     margin-left:0.5em;
     margin-right:0.5em;
 	line-height: 0;
-	vertical-align: middle;
+    text-align: right;
 	border-bottom: 3px solid transparent;
 }
 
@@ -214,14 +239,16 @@ hr
 
 .footer
 {
-    color: #232323;
-    max-width: 70rem;
+    color: var(--weak-text-color);
+    max-width: var(--content-width);
     margin-left: auto;
     margin-right: auto;
-	padding-right: 4em;
+	padding-right: 0;
     padding-top: 1em;
     padding-bottom:4em;
     text-align: right;
+    font-family: 'HeaderLink';    
+    border-top: var(--page-container-color) 1px solid;
 }
 
 .youtube
@@ -233,7 +260,7 @@ hr
 	margin-top: 1em;
     padding-top: 2em;
     padding-bottom: 2em;
-    background-color: #959595;
+    background-color: #1e1e1e;
 }
 
 .code
@@ -244,6 +271,8 @@ hr
     margin-bottom: 1em;
     padding-top: 2em;
     padding-bottom: 2em;
+    padding-left: 2em;
+    padding-right: 2em;
     background-color: #1e1e1e;
     color: #ba8e4c;
     font-family: 'Mono';
@@ -258,6 +287,7 @@ hr
 
 .image_container
 {
+    /*background-color: #1e1e1e;*/
     text-align: center;
     margin-left: auto;
     margin-right: auto;
@@ -271,7 +301,7 @@ hr
 {
     display: inline-block;
 	padding-top: 1em;
-	padding-left: 5%;
+	padding-left: 0;
 }
 
 .thumbnail_image
@@ -299,6 +329,7 @@ hr
 
 .separator
 {
+    display: none;
     position: relative;
     max-width: 70rem;
     height: 70px;
@@ -339,16 +370,16 @@ hr
 
 .feature_button
 {
-    margin-left: 5%;
-    margin-right: 5%;
+    margin-left: 0;
+    margin-right: 0;
     margin-top: 2em;
-    width: 90%;
-    height: 20vw;
+    width: 100%;
+    height: 20rem;
 	max-height: 20em;
     position: relative;
     overflow: hidden;
-    border-radius: 16px;
-    transition: opacity 0.5s ease;
+    border-radius: 3px;
+    transition: all 0.2s ease;
     opacity: 0.8;
 }
 
@@ -359,7 +390,7 @@ hr
 	background-position-x: center;
     background-position-y: center;
     height: 20em;
-	transition: all 1.0s ease, background-position 0ms;
+	transition: all 0.2s ease, background-position 0ms;
 }
 
 .feature_button .feature_button_image
@@ -374,7 +405,7 @@ hr
 .feature_button:hover .feature_button_image
 {
 	
-	background-size: auto 220%;
+	background-size: auto 205%;
     opacity: 1.0;
 	filter: blur(0px);
    -webkit-filter: blur(0px);
@@ -387,10 +418,10 @@ hr
     top: 50%;
 	bottom: 50%;
     font-family: 'Header';
-    font-size: 4vw;
+    font-size: 4rem;
 	line-height: 0;
     text-decoration: none;
-    text-transform: uppercase;
+    /*text-transform: uppercase;*/
     color: #ffffff;
     text-shadow: 4px 4px 12px #000;
 }
@@ -399,4 +430,78 @@ hr
 {
 	font-weight: bold;
 	font-family: 'Mono';
+}
+
+@media only screen and (max-width: 49rem)
+{
+    .page_content
+    {
+        padding-left: 2em;
+        padding-right: 2em;
+    }
+
+    .header
+    {
+        padding-left: 2em;
+        padding-right: 2em;
+    }
+
+    .footer
+    {
+        padding-left: 2em;
+        padding-right: 2em;
+    }
+
+    .feature_button_text
+    {
+        font-size: 1.5rem;
+    }
+
+    .header
+    {
+        height: auto;
+        max-height: none;
+    }
+
+    .header_title
+    {
+        display: block;
+        font-size: 3em;
+        text-align: center;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 0.5em;
+        padding-bottom: 2em;
+    }
+
+    .header_link
+    {
+        display: block;
+        padding-bottom: 0.5em;
+        margin-bottom: 2em;
+        text-align: center;
+        font-size: 2em;
+    }
+    
+    .header_link:hover
+    {
+        border: none;
+        border-bottom: 3px solid transparent;
+    }
+
+    .header_links
+    {
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+        float: none;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .footer
+    {
+        padding-top: 4em;
+    }
+
 }
