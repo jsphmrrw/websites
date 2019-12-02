@@ -1458,7 +1458,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
             }
             case PAGE_NODE_TYPE_youtube:
             {
-                fprintf(file, "<div class=\"youtube\"><iframe width=\"560\" height=\"315\" src=\"");
+                fprintf(file, "<div class=\"youtube\"><iframe width=\"100%%\" height=\"315\" src=\"");
                 
                 for(int i = 0; i < node->string_length; ++i)
                 {
