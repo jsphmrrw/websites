@@ -8,3 +8,6 @@
 *.dbg
 *.lib
 *.exp
+*.suo
+*.db
+*.ipch
