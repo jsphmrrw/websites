@@ -31,13 +31,13 @@ CharIsSpace(int c)
 static int
 CharIsSymbol(int c)
 {
-    return (c == '{' || c == '}' || c == '*' || c == '_' || c == '`');
+    return (c == '{' || c == '}' || c == '*' || c == '|' || c == '`');
 }
 
 static int
 CharIsText(int c)
 {
-    return !CharIsSymbol(c) && c != '@';
+    return (!CharIsSymbol(c) && c != '@');
 }
 
 static int
@@ -421,7 +421,12 @@ GetNextTokenFromBuffer(Tokenizer *tokenizer)
             // NOTE(rjf): Text
             else
             {
-                for(j=i+1; buffer[j] && CharIsText(buffer[j]) && buffer[j] != '\n' && (!tokenizer->break_text_by_commas || buffer[j] != ','); ++j);
+                for(j=i+1;
+                    buffer[j] &&
+                    CharIsText(buffer[j]) &&
+                    buffer[j] != '\n' &&
+                    (!tokenizer->break_text_by_commas ||
+                     buffer[j] != ','); ++j);
                 token.type = TOKEN_text;
                 
                 // NOTE(rjf): Add skipped whitespace to text node
@@ -1025,13 +1030,23 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
             }
             
         }
+        else if(RequireTokenType(tokenizer, TOKEN_text, &text))
+        {
+            PageNode *node = ParseContextAllocateNode(context);
+            node->type = PAGE_NODE_TYPE_text;
+            node->string = text.string;
+            node->string_length = text.string_length;
+            node->text_style_flags = text_style_flags;
+            *node_store_target = node;
+            node_store_target = &(*node_store_target)->next;
+        }
         else if(RequireTokenType(tokenizer, TOKEN_symbol, &symbol))
         {
             if(TokenMatch(symbol, "*"))
             {
                 text_style_flags ^= TEXT_STYLE_ITALICS;
             }
-            else if(TokenMatch(symbol, "_"))
+            else if(TokenMatch(symbol, "|"))
             {
                 text_style_flags ^= TEXT_STYLE_UNDERLINE;
             }
@@ -1044,16 +1059,6 @@ ParseText(ParseContext *context, Tokenizer *tokenizer)
                 PushParseError(context, tokenizer, "Unexpected symbol '%.*s'", symbol.string_length,
                                symbol.string);
             }
-        }
-        else if(RequireTokenType(tokenizer, TOKEN_text, &text))
-        {
-            PageNode *node = ParseContextAllocateNode(context);
-            node->type = PAGE_NODE_TYPE_text;
-            node->string = text.string;
-            node->string_length = text.string_length;
-            node->text_style_flags = text_style_flags;
-            *node_store_target = node;
-            node_store_target = &(*node_store_target)->next;
         }
         else if(RequireTokenType(tokenizer, TOKEN_double_newline, &text))
         {
