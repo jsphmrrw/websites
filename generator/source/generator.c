@@ -209,7 +209,7 @@ struct Tokenizer
     char *at;
     int line;
     char *file;
-    int break_Text_by_commas;
+    int break_text_by_commas;
 };
 
 #define PARSE_CONTEXT_MEMORY_BLOCK_SIZE_DEFAULT 4096
@@ -443,7 +443,7 @@ GetNextTokenFromBuffer(Tokenizer *tokenizer)
                     buffer[j] &&
                     CharIsText(buffer[j]) &&
                     buffer[j] != '\n' &&
-                    (!tokenizer->break_Text_by_commas ||
+                    (!tokenizer->break_text_by_commas ||
                      buffer[j] != ','); ++j);
                 token.type = Token_Text;
                 
@@ -1369,7 +1369,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                             node->string[i+token_length] &&
                             node->string[i+token_length] != '\n';
                             ++token_length);
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #8cba53;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #8cba53;\">");
                     }
                     else if(node->string[i] == '/' && node->string[i+1] == '*')
                     {
@@ -1379,7 +1379,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                             !(node->string[i+token_length] == '*' &&
                               node->string[i+token_length] == '/');
                             ++token_length);
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #8cba53;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #8cba53;\">");
                     }
                     else if(CharIsAlpha(node->string[i]) || node->string[i] == '_')
                     {
@@ -1407,7 +1407,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                                token_length == CalculateCStringLength(keywords[k]))
                             {
                                 code_type = CODE_TYPE_keyword;
-                                fprintf(file, "<span class=\"code_Text\" style=\"color: #f4b642;\">");
+                                fprintf(file, "<span class=\"code_text\" style=\"color: #f4b642;\">");
                                 break;
                             }
                         }
@@ -1422,7 +1422,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                             ++token_length);
                         
                         code_type = CODE_TYPE_constant;
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #82c4e5;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
                     }
                     else if(node->string[i] == '"')
                     {
@@ -1434,7 +1434,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                         ++token_length;
                         
                         code_type = CODE_TYPE_constant;
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #82c4e5;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
                     }
                     else if(node->string[i] == '\'')
                     {
@@ -1446,7 +1446,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                         ++token_length;
                         
                         code_type = CODE_TYPE_constant;
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #82c4e5;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #82c4e5;\">");
                     }
                     else if(node->string[i] == '@')
                     {
@@ -1458,7 +1458,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                         ++token_length;
                         
                         code_type = CODE_TYPE_Tag;
-                        fprintf(file, "<span class=\"code_Text\" style=\"color: #d82312;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #d82312;\">");
                     }
                     
                     for(int j = i; j < i + token_length; ++j)
@@ -1524,9 +1524,9 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 if(!thumbnails_active)
                 {
                     thumbnails_active = 1;
-                    fprintf(file, "<div class=\"thumbnail_Image_container\">");
+                    fprintf(file, "<div class=\"thumbnail_image_container\">");
                 }
-                fprintf(file, "<a href=\"%.*s\"><img class=\"thumbnail_Image\" src=\"%.*s\"></a>",
+                fprintf(file, "<a href=\"%.*s\"><img class=\"thumbnail_image\" src=\"%.*s\"></a>",
                         node->string_length, node->string,
                         node->string_length, node->string);
                 if(thumbnails_active && (!node->next || node->next->type != PageNodeType_ThumbnailImage))
@@ -1546,7 +1546,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 }
                 else
                 {
-                    fprintf(file, "<div class=\"standalone_Link_container\"><a class=\"link\" href=\"%.*s\">%.*s</a></div>",
+                    fprintf(file, "<div class=\"standalone_link_container\"><a class=\"link\" href=\"%.*s\">%.*s</a></div>",
                             node->link.url_length, node->link.url,
                             node->string_length, node->string);
                 }
@@ -1559,10 +1559,10 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                 fprintf(file, "<a href=\"%.*s\">\n",
                         node->feature_button.link_length, node->feature_button.link);
                 
-                fprintf(file, "<div class=\"feature_button_Image\" style=\"background-image: url('%.*s');\"></div>\n",
+                fprintf(file, "<div class=\"feature_button_image\" style=\"background-image: url('%.*s');\"></div>\n",
                         node->feature_button.image_path_length, node->feature_button.image_path);
                 
-                fprintf(file, "<div class=\"feature_button_Text\">\n");
+                fprintf(file, "<div class=\"feature_button_text\">\n");
                 fprintf(file, "%.*s\n", node->string_length, node->string);
                 fprintf(file, "</div>\n");
                 
@@ -1588,7 +1588,7 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                                 break;
                             }
                         }
-                        fprintf(file, "<a class=\"lister_Link\" href=\"%s\">(%i/%i/%i) %s</a>\n", path,
+                        fprintf(file, "<a class=\"lister_link\" href=\"%s\">(%i/%i/%i) %s</a>\n", path,
                                 files[i].date_year, files[i].date_month, files[i].date_day, files[i].main_title);
                     }
                 }

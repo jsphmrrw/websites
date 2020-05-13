@@ -1,0 +1,5 @@
+@Title {Documentation}
+@Description {Data Desk is a compile-time introspection and code generation tool for C and C++.}
+
+@Link { "Custom Layer API",   "custom_layer_api.html"  }
+@Link { "Language Grammar",   "language_grammar.html"  }

@@ -1,5 +1,6 @@
 const menu_id = "docs_menu";
 const filter_id = "search_input";
+const index_id = "index_menu";
 var last_active_hash = "";
 
 window.onload = function()
@@ -51,8 +52,7 @@ function UpdateListByFilter()
 	{
 		if(filter.length > 0)
 		{
-			let a = li[i].getElementsByTagName("a")[0];
-			if(StringMatchFuzzy(filter, a.innerHTML))
+			if(StringMatchFuzzy(filter, li[i].innerHTML))
 			{
 				li[i].style.display = "";
 			}
@@ -103,6 +103,11 @@ function UpdateActiveDoc(old_hash, new_hash)
 	if(new_hash != null && new_hash != undefined && new_hash.length > 0)
 	{
 		document.getElementById(new_hash).classList.remove("hidden");
+		document.getElementById(index_id).classList.add("hidden");
+	}
+	else
+	{
+		document.getElementById(index_id).classList.remove("hidden");
 	}
 	document.getElementById(filter_id).focus();
 }
