@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="author" content="Ryan Fleury">
+<title>Language Grammar | Data Desk</title>
+<meta property="og:title" content="Language Grammar">
+<meta name="twitter:title" content="Language Grammar">
+<link rel="canonical" href="https://datadesk.net/language_grammar">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://datadesk.net/language_grammar">
+<meta property="og:site_name" content="Data Desk">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@ryanjfleury">
+<link rel="stylesheet" type="text/css" href="data/styles.css">
+</head>
+<body>
+<div class="header">
+    <div class="header_title">    
+        <a href="home.html">Data Desk</a>
+    </div>
+    <div class="header_links">
+        <a href="https://github.com/ryanfleury/data_desk" class="header_link">GitHub</a>
+        <a href="documentation.html" class="header_link">Documentation</a>
+        <a href="tutorials.html" class="header_link">Tutorials</a>
+        <a href="demos.html" class="header_link">Demos</a>
+    </div>
+</div>
+<div class="separator">
+</div><div class="page_content">
+<h1>Language Grammar</h1>
+<p>A valid Data Desk file is defined as a set of zero or more Declarations, Structs, Unions, Enums, Flags, Constants, Procedure Headers, or Comments. Each of the following sections defines these (and what they are comprised of).</p><hr><br>
+<h2>Identifiers</h2>
+<p><span class="monospace">Identifier</span>s are defined as a non-keyword sequence of characters that begin with either an underscore or an alphabetic character, and contain numeric characters, alphabetic characters, or underscores (similar to C).</p><hr><br>
+<h2>Keywords</h2>
+<p>There are a number of reserved keywords in Data Desk files that cannot be used as identifiers. Here is a list of them:</p><div class="code"><pre>
+ <span class="code_text" style="color: #f4b642;">struct</span> <span class="code_text" style="color: #8cba53;">// Used for defining structs.</span>
+ <span class="code_text" style="color: #f4b642;">union</span>  <span class="code_text" style="color: #8cba53;">// Used for defining unions.</span>
+ <span class="code_text" style="color: #f4b642;">enum</span>   <span class="code_text" style="color: #8cba53;">// Used for defining enums.</span>
+ flags  <span class="code_text" style="color: #8cba53;">// Used for defining flags.</span>
+ proc   <span class="code_text" style="color: #8cba53;">// Used for defining procedure headers.</span>
+ _      <span class="code_text" style="color: #8cba53;">// Reserved for blank/unused identifiers.</span>
+</pre></div><hr><br>
+<h2>Numeric Constants</h2>
+<p>Numeric Constants are defined as a sequence of characters that begin with a numeric character, and contain only numeric characters, periods, or alphabetic characters.</p><p><i>NOTE</i>: Data Desk does not guarantee the correctness as defined by programming languages of your numeric constants. For example, the following will be interpreted by Data Desk as a numeric constant: <span class="monospace">1.2.3.a.b.c</span>.</p><hr><br>
+<h2>String Constants</h2>
+<p>String Constants can be <i>single-line</i> or <i>multi-line</i>.</p><p>A <i>single-line</i> string constant is defined similarly to those in C. It begins with a double-quote character, and ends with a <i>non-escaped</i> double-quote character. Double-quote characters can be escaped with a backslash.</p><p>A <i>multi-line</i> string constant is defined as beginning with three double-quote characters, and ending with three double-quote characters.</p><div class="code"><pre>
+<span class="code_text" style="color: #82c4e5;">"Hello, World!"</span>
+
+<span class="code_text" style="color: #82c4e5;">""</span><span class="code_text" style="color: #82c4e5;">"
+This is a multiline string constant.
+
+I can put newlines in it.
+"</span><span class="code_text" style="color: #82c4e5;">""</span>
+</pre></div><hr><br>
+<h2>Character Constants</h2>
+<p>Character Constants are defined almost identically to single-line string constants, but with single-quote beginning and ending characters instead of double-quote characters.</p><div class="code"><pre>
+<span class="code_text" style="color: #82c4e5;">'A'</span>
+</pre></div><hr><br>
+<h2>Unary Operators</h2>
+<p>Data Desk defines a subset of the unary operators found in C:</p><div class="code"><pre>
+ - <span class="code_text" style="color: #8cba53;">// Numeric Negation</span>
+ ! <span class="code_text" style="color: #8cba53;">// Boolean Not</span>
+ - <span class="code_text" style="color: #8cba53;">// Bitwise Negate</span>
+</pre></div><hr><br>
+<h2>Binary Operators</h2>
+<p>Data Desk defines a subset of the binary operators found in C. It does not define shorthand assignment operators, like <span class="monospace">+=</span> or <span class="monospace">>>=</span>, because there is no execution in Data Desk. The following binary operators are defined:</p><div class="code"><pre>
+ +  <span class="code_text" style="color: #8cba53;">// Addition</span>
+ -  <span class="code_text" style="color: #8cba53;">// Subtraction</span>
+ *  <span class="code_text" style="color: #8cba53;">// Multiplication</span>
+ /  <span class="code_text" style="color: #8cba53;">// Division</span>
+ %  <span class="code_text" style="color: #8cba53;">// Modulus</span>
+ &lt;&lt; <span class="code_text" style="color: #8cba53;">// Left Bitshift</span>
+ &gt;&gt; <span class="code_text" style="color: #8cba53;">// Right Bitshift</span>
+ &amp;  <span class="code_text" style="color: #8cba53;">// Bitwise And</span>
+ |  <span class="code_text" style="color: #8cba53;">// Bitwise Or</span>
+ &amp;&amp; <span class="code_text" style="color: #8cba53;">// Boolean And</span>
+ || <span class="code_text" style="color: #8cba53;">// Boolean Or</span>
+</pre></div><hr><br>
+<h2>Expressions</h2>
+<p>An expression is defined as a Numeric Constant, a String Constant, a Character Constant, an Identifier, a Unary Operator applied to an expression, or a Binary Operator with two expressions on either side.</p><div class="code"><pre>
+<span class="code_text" style="color: #82c4e5;">123</span>
+<span class="code_text" style="color: #82c4e5;">"Hello"</span>
+<span class="code_text" style="color: #82c4e5;">'C'</span>
+Test
+-(<span class="code_text" style="color: #82c4e5;">5</span> * <span class="code_text" style="color: #82c4e5;">6</span>)
+Foo + Bar
+</pre></div><hr><br>
+<h2>Types</h2>
+<p>Types are defined as being a set of pointer decorators or array decorators <i>in any order</i>, followed by a required base-type, which can be an Identifier that refers to some other type (defined in Data Desk or elsewhere), or a definition for a Struct, Enum, Flags, or Union. Here are a few examples of declarations in C, and how they look in Data Desk:</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// C</span>
+<span class="code_text" style="color: #f4b642;">int</span> x;
+<span class="code_text" style="color: #f4b642;">float</span> y;
+<span class="code_text" style="color: #f4b642;">char</span> *z;
+<span class="code_text" style="color: #f4b642;">void</span> *w[<span class="code_text" style="color: #82c4e5;">3</span>][<span class="code_text" style="color: #82c4e5;">4</span>];
+<span class="code_text" style="color: #f4b642;">struct</span>
+{
+    <span class="code_text" style="color: #f4b642;">int</span> x;
+    <span class="code_text" style="color: #f4b642;">int</span> y;
+} foo;
+
+
+<span class="code_text" style="color: #8cba53;">// Data Desk</span>
+x : <span class="code_text" style="color: #f4b642;">int</span>;
+y : <span class="code_text" style="color: #f4b642;">float</span>;
+z : *<span class="code_text" style="color: #f4b642;">char</span>;
+w : [<span class="code_text" style="color: #82c4e5;">3</span>][<span class="code_text" style="color: #82c4e5;">4</span>]*<span class="code_text" style="color: #f4b642;">void</span>;
+foo : <span class="code_text" style="color: #f4b642;">struct</span>
+{
+    x : <span class="code_text" style="color: #f4b642;">int</span>;
+    y : <span class="code_text" style="color: #f4b642;">int</span>;
+}
+</pre></div><hr><br>
+<h2>Declarations</h2>
+<p>Declarations are specified as follows:</p><div class="code"><pre>
+Identifier : Type
+</pre></div><hr><br>
+<h2>Definitions</h2>
+<p>Definitions are specified as follows:</p><div class="code"><pre>
+Identifier :: Struct, Union, Enum, Flags, Procedure Header, or Expression
+</pre></div><hr><br>
+<h2>Structs</h2>
+<p>Structs are groups of zero or more declarations that are mean to refer to product-types. They can be used as types directly, but can also be defined in standalone fashion (similar to C). They are specified as:</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">struct</span>
+{
+    <span class="code_text" style="color: #8cba53;">// Zero or more declarations</span>
+}
+</pre></div><hr><br>
+<h2>Unions</h2>
+<p>Unions are groups of zero or more declarations that are meant to refer to sum-types (instead of product-types). They can be used as types directly, but can also be defined in standalone fashion (similar to C). They are specified as:</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">union</span>
+{
+    <span class="code_text" style="color: #8cba53;">// Zero or more declarations</span>
+}
+</pre></div><hr><br>
+<h2>Enums</h2>
+<p>Enums are groups of zero or more constant definitions. They are defined as:</p><div class="code"><pre>
+<span class="code_text" style="color: #f4b642;">enum</span>
+{
+    <span class="code_text" style="color: #8cba53;">// Zero or more identifiers, optionally followed by a `=` and an expression, followed by ',' or ';' characters</span>
+}
+</pre></div><p>When transpiled to C, these will be defined as an equivalent <span class="monospace">enum</span> in C.</p><hr><br>
+<h2>Flags</h2>
+<p>Flags are groups of zero or more constant definitions. They are defined as:</p><div class="code"><pre>
+flags
+{
+    <span class="code_text" style="color: #8cba53;">// Zero or more identifiers, optionally followed by a `=` and an expression, followed by ',' or ';' characters</span>
+}
+</pre></div><p>When transpiled to C, these will be defined as several C preprocessor macros that evaluate to unique bits inside of an integral value. These are similar to Enums, but their purpose is to define unique bits instead of unique integral values for a set of constants.</p><hr><br>
+<h2>Procedure Headers</h2>
+<p>Procedure headers (Procedure Headers) are defined as:</p><div class="code"><pre>
+proc(Zero or more Declarations) [ -&gt; Type ]
+</pre></div><hr><br>
+<h2>Comments</h2>
+<p>Comments are ignored by the parser. They can be <i>single-line</i> or <i>multi-line</i>. Multi-line comments can be nested (unlike C).</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// Single-Line Comment</span>
+
+<span class="code_text" style="color: #8cba53;">/*
+Multi-line Comment
+*/</span>
+
+<span class="code_text" style="color: #8cba53;">/*
+/*
+Nested Multi-line Comment
+*/
+*/</span>
+</pre></div><hr><br>
+<h2>Tags</h2>
+<p>Structs, Unions, Declarations (including those within Structs, Unions, and Procedure Headers), Constants, Identifiers within Enums or Flags, and Procedure Headers can be preceded with one or more Tags. A Tag can be defined as follows: </p><div class="code"><pre>
+<span class="code_text" style="color: #d86312;">@TagName1
+</span><span class="code_text" style="color: #d86312;">@TagName2("Optional Parameters", 123, 456)</span>
+</pre></div><p>These are used to annotate meta-information about various things. They will be passed to custom-layer code, and are stored in the abstract-syntax-tree.</p></div>
+<div class="separator reverse"></div>
+<div class="footer">
+	<a class="header_link" href="https://ryanfleury.net">RJF</a>
+</div></body>
+</html>

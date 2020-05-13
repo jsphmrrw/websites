@@ -4,6 +4,45 @@
 
 Data Desk is a utility that lets you define and control your data. It is a parser for a file format that allows you to define important code constructs, like structs, enums, flags, procedure headers, and declarations. It also allows you to tag those structures with meta-information that is meaningful for your codebase.
 
+@Code
+{
+@UI @Serialize
+Player :: struct
+{
+    @UI(ColorPicker)
+        color : v3;
+    @UI(Gizmo)
+        position : v3;
+    @NoUI @DoNotSerialize
+        velocity : v3;
+    @NoUI @DoNotSerialize
+    	health : f32;
+}
+}
+
 After parsing this format, Data Desk calls your own custom code back with the abstract-syntax-trees of what was parsed, allowing you to use your code as data. From there, it's all up to you; you can introspect on the code's abstract-syntax-tree arbitrarily, and do your own code generation.
+
+@Code
+{
+// Generated C Code
+
+struct Player
+{
+    v3 color;
+    v3 position;
+    v3 velocity;
+    f32 health;
+};
+
+struct Player_Editor
+{
+    v3 color;
+    v3 position;	
+};
+
+SerializeResult PlayerSerialize(MemoryArena *arena, Player_Editor *player);
+void PlayerDeserialize(MemoryArena *arena, Player *player);
+void PlayerDoUI(MemoryArena *arena, Player_Editor *player);
+}
 
 Data Desk is an open-source tool, and all of its code is @Link{"available online for free", "https://github.com/ryanfleury/data_desk"}. It is licensed under the MIT License.

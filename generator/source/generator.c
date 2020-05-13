@@ -419,6 +419,7 @@ GetNextTokenFromBuffer(Tokenizer *tokenizer)
                     "`",
                     "{",
                     "}",
+                    "|",
                 };
                 
                 for(j=i+1; buffer[j] && CharIsSymbol(buffer[j]); ++j);
@@ -1374,11 +1375,25 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                     else if(node->string[i] == '/' && node->string[i+1] == '*')
                     {
                         code_type = CODE_TYPE_block_comment;
-                        for(;
-                            node->string[i+token_length] &&
-                            !(node->string[i+token_length] == '*' &&
-                              node->string[i+token_length] == '/');
-                            ++token_length);
+                        int nest_level = 1;
+                        for(; node->string[i+token_length]; ++token_length)
+                        {
+                            if(node->string[i+token_length] == '*' &&
+                               node->string[i+token_length+1] == '/')
+                            {
+                                nest_level -= 1;
+                                if(nest_level <= 0)
+                                {
+                                    break;
+                                }
+                            }
+                            else if(node->string[i+token_length] == '/' &&
+                                    node->string[i+token_length+1] == '*')
+                            {
+                                nest_level += 1;
+                            }
+                        }
+                        token_length += 2;
                         fprintf(file, "<span class=\"code_text\" style=\"color: #8cba53;\">");
                     }
                     else if(CharIsAlpha(node->string[i]) || node->string[i] == '_')
@@ -1450,15 +1465,34 @@ OutputHTMLFromPageNodeTreeToFile_(PageNode *node, FILE *file, int follow_next, P
                     }
                     else if(node->string[i] == '@')
                     {
-                        for(;
-                            node->string[i+token_length] &&
-                            node->string[i+token_length] > 32;
-                            ++token_length);
+                        int nest_level = 0;
+                        for(; node->string[i+token_length]; ++token_length)
+                        {
+                            if(node->string[i+token_length] == '(')
+                            {
+                                nest_level += 1;
+                            }
+                            else if(node->string[i+token_length] == ')')
+                            {
+                                nest_level -= 1;
+                                if(nest_level <= 0)
+                                {
+                                    break;
+                                }
+                            }
+                            else if(node->string[i+token_length] <= 32)
+                            {
+                                if(nest_level == 0)
+                                {
+                                    break;
+                                }
+                            }
+                        }
                         
                         ++token_length;
                         
                         code_type = CODE_TYPE_Tag;
-                        fprintf(file, "<span class=\"code_text\" style=\"color: #d82312;\">");
+                        fprintf(file, "<span class=\"code_text\" style=\"color: #d86312;\">");
                     }
                     
                     for(int j = i; j < i + token_length; ++j)

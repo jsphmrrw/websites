@@ -151,7 +151,6 @@ typedef enum DataDeskNodeType
     DataDeskNodeType_Tag,
 }
 DataDeskNodeType;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -243,7 +242,6 @@ typedef enum DataDeskUnaryOperatorType
     DataDeskUnaryOperatorType_Max,
 }
 DataDeskUnaryOperatorType;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -298,7 +296,6 @@ typedef enum DataDeskBinaryOperatorType
     DataDeskBinaryOperatorType_Max,
 }
 DataDeskBinaryOperatorType;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -373,7 +370,6 @@ typedef enum DataDeskTypeDecoratorType
     DataDeskTypeDecoratorType_Array,
 }
 DataDeskTypeDecoratorType;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -408,7 +404,6 @@ typedef enum DataDeskWordStyle
     DataDeskWordStyle_Max,
 }
 DataDeskWordStyle;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -460,7 +455,6 @@ typedef enum DataDeskWordSeparator
     DataDeskWordSeparator_Max,
 }
 DataDeskWordSeparator;
-
 </pre>
 </div>
 <h2>Values</h2>
@@ -559,7 +553,6 @@ struct DataDeskNode
         }tag;
     };
 };
-
 </pre>
 </div>
 <h2>Members</h2>
@@ -678,7 +671,6 @@ struct DataDeskNode
 <div class="code">
 <pre>
 int DataDeskStringHasSubString(char *string, char *substring);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -699,7 +691,6 @@ int DataDeskStringHasSubString(char *string, char *substring);
 <div class="code">
 <pre>
 char *DataDeskGetTransformedString(DataDeskNode *root, DataDeskWordStyle style, DataDeskWordSeparator separator);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -726,7 +717,6 @@ char *DataDeskGetTransformedString(DataDeskNode *root, DataDeskWordStyle style, 
 <div class="code">
 <pre>
 char *DataDeskGetTransformedStringDifferentFirstWord(DataDeskNode *root, DataDeskWordStyle first_word_style, DataDeskWordStyle style, DataDeskWordSeparator separator);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -757,7 +747,6 @@ char *DataDeskGetTransformedStringDifferentFirstWord(DataDeskNode *root, DataDes
 <div class="code">
 <pre>
 DataDeskNode *DataDeskGetNodeTag(DataDeskNode *root, char *tag);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -780,7 +769,6 @@ DataDeskNode *DataDeskGetNodeTag(DataDeskNode *root, char *tag);
 <div class="code">
 <pre>
 DataDeskNode *DataDeskGetTagParameter(DataDeskNode *tag, int parameter_number);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -803,7 +791,6 @@ DataDeskNode *DataDeskGetTagParameter(DataDeskNode *tag, int parameter_number);
 <div class="code">
 <pre>
 int DataDeskNodeHasTag(DataDeskNode *root, char *tag);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -826,7 +813,6 @@ int DataDeskNodeHasTag(DataDeskNode *root, char *tag);
 <div class="code">
 <pre>
 int DataDeskRequireTagParameter(DataDeskNode *root, char *tag, int index, DataDeskNode **result);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -857,7 +843,6 @@ int DataDeskRequireTagParameter(DataDeskNode *root, char *tag, int index, DataDe
 <div class="code">
 <pre>
 int DataDeskRequireTagParameters(DataDeskNode *root, char *tag, int count, DataDeskNode **array);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -888,7 +873,6 @@ int DataDeskRequireTagParameters(DataDeskNode *root, char *tag, int count, DataD
 <div class="code">
 <pre>
 int DataDeskMatchType(DataDeskNode *root, char *type);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -911,7 +895,6 @@ int DataDeskMatchType(DataDeskNode *root, char *type);
 <div class="code">
 <pre>
 char *DataDeskGetTypeAccessString(DataDeskNode *node);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -930,7 +913,6 @@ char *DataDeskGetTypeAccessString(DataDeskNode *node);
 <div class="code">
 <pre>
 DataDeskNode *DataDeskEvaluateType(DataDeskNode *root);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -949,7 +931,6 @@ DataDeskNode *DataDeskEvaluateType(DataDeskNode *root);
 <div class="code">
 <pre>
 DataDeskNode *DataDeskEvaluateBaseType(DataDeskNode *root);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -968,7 +949,6 @@ DataDeskNode *DataDeskEvaluateBaseType(DataDeskNode *root);
 <div class="code">
 <pre>
 int DataDeskIsArrayType(DataDeskNode *root, DataDeskNode **base_type, DataDeskNode **array_size_expression);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -995,7 +975,6 @@ int DataDeskIsArrayType(DataDeskNode *root, DataDeskNode **base_type, DataDeskNo
 <div class="code">
 <pre>
 int DataDeskIsPointerType(DataDeskNode *root, DataDeskNode **base_type);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1018,7 +997,6 @@ int DataDeskIsPointerType(DataDeskNode *root, DataDeskNode **base_type);
 <div class="code">
 <pre>
 int DataDeskInterpretNumericExpressionAsInteger(DataDeskNode *root);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1037,7 +1015,6 @@ int DataDeskInterpretNumericExpressionAsInteger(DataDeskNode *root);
 <div class="code">
 <pre>
 char *DataDeskGetBinaryOperatorString(DataDeskBinaryOperatorType type);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1056,7 +1033,6 @@ char *DataDeskGetBinaryOperatorString(DataDeskBinaryOperatorType type);
 <div class="code">
 <pre>
 char *DataDeskGetUnaryOperatorString(DataDeskUnaryOperatorType type);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1075,7 +1051,6 @@ char *DataDeskGetUnaryOperatorString(DataDeskUnaryOperatorType type);
 <div class="code">
 <pre>
 void DataDeskFWriteGraphAsC(FILE *file, DataDeskNode *root);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1098,7 +1073,6 @@ void DataDeskFWriteGraphAsC(FILE *file, DataDeskNode *root);
 <div class="code">
 <pre>
 void DataDeskFWriteStringWithSpaces(FILE *file, char *string);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1121,7 +1095,6 @@ void DataDeskFWriteStringWithSpaces(FILE *file, char *string);
 <div class="code">
 <pre>
 void DataDeskFWriteStringAsLowercaseWithUnderscores(FILE *file, char *string);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1144,7 +1117,6 @@ void DataDeskFWriteStringAsLowercaseWithUnderscores(FILE *file, char *string);
 <div class="code">
 <pre>
 void DataDeskFWriteStringAsUppercaseWithUnderscores(FILE *file, char *string);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1167,7 +1139,6 @@ void DataDeskFWriteStringAsUppercaseWithUnderscores(FILE *file, char *string);
 <div class="code">
 <pre>
 void DataDeskFWriteStringAsUpperCamelCase(FILE *file, char *string);
-
 </pre>
 </div>
 <h2>Parameters</h2>
@@ -1190,7 +1161,6 @@ void DataDeskFWriteStringAsUpperCamelCase(FILE *file, char *string);
 <div class="code">
 <pre>
 void DataDeskFWriteStringAsLowerCamelCase(FILE *file, char *string);
-
 </pre>
 </div>
 <h2>Parameters</h2>

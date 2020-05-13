@@ -1,0 +1,239 @@
+@Title {"Language Grammar"}
+
+A valid Data Desk file is defined as a set of zero or more Declarations, Structs, Unions, Enums, Flags, Constants, Procedure Headers, or Comments. Each of the following sections defines these (and what they are comprised of).
+
+@SubTitle {"Identifiers"}
+
+`Identifier`s are defined as a non-keyword sequence of characters that begin with either an underscore or an alphabetic character, and contain numeric characters, alphabetic characters, or underscores (similar to C).
+
+@SubTitle {"Keywords"}
+
+There are a number of reserved keywords in Data Desk files that cannot be used as identifiers. Here is a list of them:
+
+@Code
+{
+ struct // Used for defining structs.
+ union  // Used for defining unions.
+ enum   // Used for defining enums.
+ flags  // Used for defining flags.
+ proc   // Used for defining procedure headers.
+ _      // Reserved for blank/unused identifiers.
+}
+
+@SubTitle {"Numeric Constants"}
+
+Numeric Constants are defined as a sequence of characters that begin with a numeric character, and contain only numeric characters, periods, or alphabetic characters.
+
+*NOTE*: Data Desk does not guarantee the correctness as defined by programming languages of your numeric constants. For example, the following will be interpreted by Data Desk as a numeric constant: `1.2.3.a.b.c`.
+
+@SubTitle {"String Constants"}
+
+String Constants can be *single-line* or *multi-line*.
+
+A *single-line* string constant is defined similarly to those in C. It begins with a double-quote character, and ends with a *non-escaped* double-quote character. Double-quote characters can be escaped with a backslash.
+
+A *multi-line* string constant is defined as beginning with three double-quote characters, and ending with three double-quote characters.
+
+@Code
+{
+"Hello, World!"
+
+"""
+This is a multiline string constant.
+
+I can put newlines in it.
+"""
+}
+
+@SubTitle {"Character Constants"}
+
+Character Constants are defined almost identically to single-line string constants, but with single-quote beginning and ending characters instead of double-quote characters.
+
+@Code
+{
+'A'
+}
+
+@SubTitle {"Unary Operators"}
+
+Data Desk defines a subset of the unary operators found in C:
+
+@Code
+{
+ - // Numeric Negation
+ ! // Boolean Not
+ - // Bitwise Negate
+}
+
+@SubTitle {"Binary Operators"}
+
+Data Desk defines a subset of the binary operators found in C. It does not define shorthand assignment operators, like `+=` or `>>=`, because there is no execution in Data Desk. The following binary operators are defined:
+
+@Code
+{
+ +  // Addition
+ -  // Subtraction
+ *  // Multiplication
+ /  // Division
+ %  // Modulus
+ << // Left Bitshift
+ >> // Right Bitshift
+ &  // Bitwise And
+ |  // Bitwise Or
+ && // Boolean And
+ || // Boolean Or
+}
+
+@SubTitle {"Expressions"}
+
+An expression is defined as a Numeric Constant, a String Constant, a Character Constant, an Identifier, a Unary Operator applied to an expression, or a Binary Operator with two expressions on either side.
+ 
+@Code
+{
+123
+"Hello"
+'C'
+Test
+-(5 * 6)
+Foo + Bar
+}
+
+@SubTitle {"Types"}
+
+**Type**s are defined as being a set of pointer decorators or array decorators *in any order*, followed by a required base-type, which can be an Identifier that refers to some other type (defined in Data Desk or elsewhere), or a definition for a Struct, Enum, Flags, or Union. Here are a few examples of declarations in C, and how they look in Data Desk:
+
+@Code
+{
+// C
+int x;
+float y;
+char *z;
+void *w[3][4];
+struct
+{
+    int x;
+    int y;
+} foo;
+
+
+// Data Desk
+x : int;
+y : float;
+z : *char;
+w : [3][4]*void;
+foo : struct
+{
+    x : int;
+    y : int;
+}
+}
+
+@SubTitle {"Declarations"}
+
+Declarations are specified as follows:
+
+@Code
+{
+Identifier : Type
+}
+
+@SubTitle {"Definitions"}
+
+Definitions are specified as follows:
+
+@Code
+{
+Identifier :: Struct, Union, Enum, Flags, Procedure Header, or Expression
+}
+
+@SubTitle {"Structs"}
+
+Structs are groups of zero or more declarations that are mean to refer to product-types. They can be used as types directly, but can also be defined in standalone fashion (similar to C). They are specified as:
+
+@Code
+{
+struct
+{
+    // Zero or more declarations
+}
+}
+
+@SubTitle {"Unions"}
+
+Unions are groups of zero or more declarations that are meant to refer to sum-types (instead of product-types). They can be used as types directly, but can also be defined in standalone fashion (similar to C). They are specified as:
+
+@Code
+{
+union
+{
+    // Zero or more declarations
+}
+}
+
+@SubTitle {"Enums"}
+
+Enums are groups of zero or more constant definitions. They are defined as:
+
+@Code
+{
+enum
+{
+    // Zero or more identifiers, optionally followed by a `=` and an expression, followed by ',' or ';' characters
+}
+}
+
+When transpiled to C, these will be defined as an equivalent `enum` in C.
+
+@SubTitle {"Flags"}
+
+Flags are groups of zero or more constant definitions. They are defined as:
+
+@Code
+{
+flags
+{
+    // Zero or more identifiers, optionally followed by a `=` and an expression, followed by ',' or ';' characters
+}
+}
+
+When transpiled to C, these will be defined as several C preprocessor macros that evaluate to unique bits inside of an integral value. These are similar to Enums, but their purpose is to define unique bits instead of unique integral values for a set of constants.
+
+@SubTitle {"Procedure Headers"}
+
+Procedure headers (**Procedure Header**s) are defined as:
+
+@Code
+{
+proc(Zero or more Declarations) [ -> Type ]
+}
+
+@SubTitle {"Comments"}
+
+Comments are ignored by the parser. They can be *single-line* or *multi-line*. Multi-line comments can be nested (unlike C).
+
+@Code
+{
+// Single-Line Comment
+
+/*
+Multi-line Comment
+*/
+
+/*
+/*
+Nested Multi-line Comment
+*/
+*/
+}
+
+@SubTitle {"Tags"}
+
+Structs, Unions, Declarations (including those within Structs, Unions, and Procedure Headers), Constants, Identifiers within Enums or Flags, and Procedure Headers can be preceded with one or more Tags. A Tag can be defined as follows: 
+
+@Code
+{
+@TagName1
+@TagName2("Optional Parameters", 123, 456)
+}
+
+These are used to annotate meta-information about various things. They will be passed to custom-layer code, and are stored in the abstract-syntax-tree.

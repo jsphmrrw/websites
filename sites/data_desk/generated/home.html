@@ -30,7 +30,40 @@
 </div>
 <div class="separator">
 </div><div class="page_content">
-<div class="youtube"><iframe width="100%" height="315" src="https://www.youtube.com/embed/-ePt48anEO8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div><p>Data Desk is a utility that lets you define and control your data. It is a parser for a file format that allows you to define important code constructs, like structs, enums, flags, procedure headers, and declarations. It also allows you to tag those structures with meta-information that is meaningful for your codebase.</p><p>After parsing this format, Data Desk calls your own custom code back with the abstract-syntax-trees of what was parsed, allowing you to use your code as data. From there, it's all up to you; you can introspect on the code's abstract-syntax-tree arbitrarily, and do your own code generation.</p><p>Data Desk is an open-source tool, and all of its code is <a class="link" href="https://github.com/ryanfleury/data_desk">available online for free</a>. It is licensed under the MIT License.</p></div>
+<div class="youtube"><iframe width="100%" height="315" src="https://www.youtube.com/embed/-ePt48anEO8" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div><p>Data Desk is a utility that lets you define and control your data. It is a parser for a file format that allows you to define important code constructs, like structs, enums, flags, procedure headers, and declarations. It also allows you to tag those structures with meta-information that is meaningful for your codebase.</p><div class="code"><pre>
+<span class="code_text" style="color: #d86312;">@UI </span><span class="code_text" style="color: #d86312;">@Serialize
+</span>Player :: <span class="code_text" style="color: #f4b642;">struct</span>
+{
+    <span class="code_text" style="color: #d86312;">@UI(ColorPicker)</span>
+        color : v3;
+    <span class="code_text" style="color: #d86312;">@UI(Gizmo)</span>
+        position : v3;
+    <span class="code_text" style="color: #d86312;">@NoUI </span><span class="code_text" style="color: #d86312;">@DoNotSerialize
+</span>        velocity : v3;
+    <span class="code_text" style="color: #d86312;">@NoUI </span><span class="code_text" style="color: #d86312;">@DoNotSerialize
+</span>    	health : f32;
+}
+</pre></div><p>After parsing this format, Data Desk calls your own custom code back with the abstract-syntax-trees of what was parsed, allowing you to use your code as data. From there, it's all up to you; you can introspect on the code's abstract-syntax-tree arbitrarily, and do your own code generation.</p><div class="code"><pre>
+<span class="code_text" style="color: #8cba53;">// Generated C Code</span>
+
+<span class="code_text" style="color: #f4b642;">struct</span> Player
+{
+    v3 color;
+    v3 position;
+    v3 velocity;
+    f32 health;
+};
+
+<span class="code_text" style="color: #f4b642;">struct</span> Player_Editor
+{
+    v3 color;
+    v3 position;	
+};
+
+SerializeResult PlayerSerialize(MemoryArena *arena, Player_Editor *player);
+<span class="code_text" style="color: #f4b642;">void</span> PlayerDeserialize(MemoryArena *arena, Player *player);
+<span class="code_text" style="color: #f4b642;">void</span> PlayerDoUI(MemoryArena *arena, Player_Editor *player);
+</pre></div><p>Data Desk is an open-source tool, and all of its code is <a class="link" href="https://github.com/ryanfleury/data_desk">available online for free</a>. It is licensed under the MIT License.</p></div>
 <div class="separator reverse"></div>
 <div class="footer">
 	<a class="header_link" href="https://ryanfleury.net">RJF</a>
