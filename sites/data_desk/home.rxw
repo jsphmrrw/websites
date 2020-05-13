@@ -1,0 +1,9 @@
+@Description {Data Desk is a compile-time introspection and code generation tool for C and C++.}
+
+@YouTube {"https://www.youtube.com/watch?v=-ePt48anEO8"}
+
+Data Desk is a utility that lets you define and control your data. It is a parser for a file format that allows you to define important code constructs, like structs, enums, flags, procedure headers, and declarations. It also allows you to tag those structures with meta-information that is meaningful for your codebase.
+
+After parsing this format, Data Desk calls your own custom code back with the abstract-syntax-trees of what was parsed, allowing you to use your code as data. From there, it's all up to you; you can introspect on the code's abstract-syntax-tree arbitrarily, and do your own code generation.
+
+Data Desk is an open-source tool, and all of its code is @Link{"available online for free", "https://github.com/ryanfleury/data_desk"}. It is licensed under the MIT License.
