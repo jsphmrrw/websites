@@ -1647,6 +1647,7 @@ struct SiteInfo
     char *main_title;
     char *author;
     char *twitter_handle;
+    char* icon_path;
 };
 
 static void
@@ -1676,6 +1677,9 @@ OutputHTMLHeader(SiteInfo *site_info, ProcessedFile *page)
     fprintf(file, "<meta name=\"twitter:card\" content=\"summary\">\n");
     fprintf(file, "<meta name=\"twitter:site\" content=\"%s\">\n", site_info->twitter_handle ? site_info->twitter_handle : "");
     fprintf(file, "<link rel=\"stylesheet\" type=\"text/css\" href=\"data/styles.css\">\n");
+    if(site_info->icon_path){
+        fprintf(file,"<link rel=\"icon\" type=\"image/png\" href=\"%s\">",site_info->icon_path);
+    }
     fprintf(file, "</head>\n");
     fprintf(file, "<body>\n");
     if(page->html_header)
@@ -2052,6 +2056,13 @@ main(int argument_count, char **arguments)
             {
                 site_info.canonical_url = arguments[i+1];
                 Log("Canonical URL set as \"%s\".", site_info.canonical_url);
+                arguments[i] = 0;
+                arguments[i+1] = 0;
+                ++i;
+            }
+            else if(CStringMatchCaseInsensitive(arguments[i], "--icon")){
+                site_info.icon_path = arguments[i+1];
+                Log("Favicon path set as \"%s\".", site_info.icon_path);
                 arguments[i] = 0;
                 arguments[i+1] = 0;
                 ++i;
